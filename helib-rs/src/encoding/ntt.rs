@@ -1,4 +1,3 @@
-use crate::encoding::utils;
 use ark_ff::PrimeField;
 
 pub struct NTTProcessor<F: PrimeField> {
@@ -75,7 +74,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let mut tmp = F::one();
         for _ in 0..n >> 1 {
             table.push(tmp);
-            tmp = tmp * root;
+            tmp *= root;
         }
         table
     }
@@ -90,7 +89,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         assert_eq!(input.len(), self.n);
         let levels = self.n.ilog2();
         for i in 0..self.n {
-            let j = utils::reverse_n_bits(i as u64, levels as u64) as usize;
+            let j = super::reverse_n_bits(i as u64, levels as u64) as usize;
             if j > i {
                 input.swap(i, j);
             }
@@ -128,7 +127,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let levels = self.n.ilog2();
 
         for i in 0..self.n {
-            let j = utils::reverse_n_bits(i as u64, levels as u64) as usize;
+            let j = super::reverse_n_bits(i as u64, levels as u64) as usize;
             if j > i {
                 input.swap(i, j);
             }
@@ -161,46 +160,12 @@ impl<F: PrimeField> NTTProcessor<F> {
 #[cfg(test)]
 mod ntt_test {
     use super::*;
-    use crate::encoding::galois::Galois;
+    use crate::encoding::{cyclic_naive_mult, galois::Galois, negacyclic_naive_mult};
     use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
 
     const NUM_TRIALS: usize = 10;
     const N: usize = 1024;
-
-    fn negacyclic_naive_mult<F: PrimeField>(a: &[F], b: &[F]) -> Vec<F> {
-        assert!(a.len() == b.len());
-        let mut result = vec![F::zero(); a.len()];
-        for i in 0..a.len() {
-            let mut acc = F::zero();
-            for j in 0..=i {
-                acc += a[j] * b[i - j];
-            }
-            for j in (i + 1)..a.len() {
-                let sub = a[j] * b[a.len() + i - j];
-                acc -= sub; // negacylcic
-            }
-            result[i] = acc;
-        }
-        result
-    }
-
-    pub(crate) fn cyclic_naive_mult<F: PrimeField>(a: &[F], b: &[F]) -> Vec<F> {
-        assert!(a.len() == b.len());
-        let mut result = vec![F::zero(); a.len()];
-        for i in 0..a.len() {
-            let mut acc = F::zero();
-            for j in 0..=i {
-                acc += a[j] * b[i - j];
-            }
-            for j in (i + 1)..a.len() {
-                let sub = a[j] * b[a.len() + i - j];
-                acc += sub; // cyclic
-            }
-            result[i] = acc;
-        }
-        result
-    }
 
     #[test]
     fn ntt_is_bijective() {

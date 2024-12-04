@@ -5,7 +5,7 @@ use rand::thread_rng;
 pub(crate) struct Galois {}
 
 impl Galois {
-    const GENERATOR: usize = 3;
+    pub(crate) const GENERATOR: usize = 3;
     const MAX_ATTEMPTS: usize = 100;
 
     /// transforms rotation step to automorphism element
@@ -77,5 +77,27 @@ impl Galois {
         }
 
         Some(root)
+    }
+
+    pub(crate) fn automorphism<F: PrimeField>(a: &[F], galois_elt: usize) -> Vec<F> {
+        let n = a.len();
+        assert!(n.is_power_of_two());
+        assert!(galois_elt & 1 == 1);
+        assert!(galois_elt < 2 * n);
+
+        let log2n = n.ilog2();
+
+        let mut result = a.to_vec();
+        let mut index_raw = 0;
+        for val in a.iter() {
+            let index = index_raw % n;
+            if (index_raw >> log2n) & 1 == 0 {
+                result[index] = *val;
+            } else {
+                result[index] = -*val;
+            }
+            index_raw += galois_elt;
+        }
+        result
     }
 }
