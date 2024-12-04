@@ -55,7 +55,8 @@ impl SecKey {
 
     pub fn packed_decrypt(&self, ctxt: &Ctxt) -> Result<EncodedPtxt, Error> {
         let mut ptxt = EncodedPtxt::empty_pointer();
-        let ret = unsafe { helib_bindings::seckey_decrypt(&mut ptxt.ptr, self.ptr, ctxt.ptr) };
+        let ret =
+            unsafe { helib_bindings::seckey_packed_decrypt(&mut ptxt.ptr, self.ptr, ctxt.ptr) };
         Error::error_from_return(ret)?;
         Ok(ptxt)
     }
