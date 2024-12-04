@@ -128,10 +128,11 @@ mod test {
         for _ in 0..TESTRUNS {
             let mut input = rng.gen::<CLong>();
             let mut zz = ZZ::from_long(input).unwrap();
-            let zz_bytes = zz.to_le_bytes().unwrap();
+            let mut zz_bytes = zz.to_le_bytes().unwrap();
             if input < 0 {
                 input = -input;
             }
+            zz_bytes.resize(size_of::<CLong>(), 0);
             assert_eq!(&zz_bytes, input.to_le_bytes().as_ref());
             zz.destroy().unwrap(); // Is also called in drop
         }

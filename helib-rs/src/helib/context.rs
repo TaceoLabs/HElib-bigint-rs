@@ -18,6 +18,7 @@ impl Context {
     pub fn security_level(&self) -> Result<f64, Error> {
         let mut res = 0f64;
         let ret = unsafe { helib_bindings::context_get_security_level(self.ptr, &mut res) };
+        Error::error_from_return(ret)?;
         Ok(res)
     }
 
@@ -60,7 +61,6 @@ mod test {
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(32109, &p, 700).unwrap();
         let _level = context.security_level().unwrap();
-        println!("Security level: {}", _level);
     }
 
     #[test]
