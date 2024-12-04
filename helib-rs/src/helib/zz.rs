@@ -9,6 +9,10 @@ pub struct ZZ {
 }
 
 impl ZZ {
+    pub(crate) fn empty_pointer() -> Self {
+        Self { ptr: null_mut() }
+    }
+
     pub fn from_string(mut s: String) -> Result<Self, Error> {
         let mut ptr = null_mut();
         s.push('\0'); // Add null terminator to translate to C string

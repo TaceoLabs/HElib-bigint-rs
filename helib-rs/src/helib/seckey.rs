@@ -1,5 +1,5 @@
-use super::{error::Error, pubkey::PubKey};
-use crate::Context;
+use super::{ctxt::Ctxt, error::Error, pubkey::PubKey};
+use crate::{Context, ZZ};
 use std::{ffi::c_void, ptr::null_mut};
 
 #[derive(Debug)]
@@ -29,6 +29,20 @@ impl SecKey {
     pub fn get_public_key(&self) -> Result<PubKey, Error> {
         PubKey::from_seckey(self)
     }
+
+    pub fn encrypt(&self, zz: &ZZ) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret = unsafe { helib_bindings::seckey_encrypt(&mut ctxt.ptr, self.ptr, zz.ptr) };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
+    pub fn decrypt(&self, ctxt: &Ctxt) -> Result<ZZ, Error> {
+        let mut zz = ZZ::empty_pointer();
+        let ret = unsafe { helib_bindings::seckey_decrypt(&mut zz.ptr, self.ptr, ctxt.ptr) };
+        Error::error_from_return(ret)?;
+        Ok(zz)
+    }
 }
 
 impl Drop for SecKey {
@@ -41,6 +55,10 @@ impl Drop for SecKey {
 mod test {
     use super::*;
     use crate::ZZ;
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
+    const TESTRUNS: usize = 10;
 
     #[test]
     fn build_seckey() {
@@ -56,5 +74,21 @@ mod test {
         let context = Context::build(32109, &p, 700).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let _pubkey = seckey.get_public_key().unwrap();
+    }
+
+    #[test]
+    fn seckey_encrypt_decrypt() {
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(32109, &p, 700).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let mut rng = thread_rng();
+        for _ in 0..TESTRUNS {
+            let input = ark_bn254::Fr::rand(&mut rng);
+            let zz = ZZ::from_primefield(input).unwrap();
+            let ctxt = seckey.encrypt(&zz).unwrap();
+            let ptxt = seckey.decrypt(&ctxt).unwrap();
+            let decrypted = ptxt.to_primefield::<ark_bn254::Fr>().unwrap();
+            assert_eq!(decrypted, input);
+        }
     }
 }
