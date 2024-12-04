@@ -45,7 +45,7 @@ mod test {
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
         let mut rng = thread_rng();
-        let zz = ZZ::from_primefield(ark_bn254::Fr::rand(&mut rng)).unwrap();
+        let zz = ZZ::from_fieldelement(ark_bn254::Fr::rand(&mut rng)).unwrap();
         let mut ctxt = pubkey.encrypt(&zz).unwrap();
         ctxt.destroy().unwrap(); // Is also called in drop
     }

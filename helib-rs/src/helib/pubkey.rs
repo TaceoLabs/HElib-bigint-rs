@@ -1,6 +1,6 @@
-use crate::ZZ;
-
 use super::{ctxt::Ctxt, error::Error, seckey::SecKey};
+use crate::ZZ;
+use ark_ff::PrimeField;
 use std::{ffi::c_void, ptr::null_mut};
 
 #[derive(Debug)]
@@ -32,6 +32,11 @@ impl PubKey {
         let ret = unsafe { helib_bindings::pubkey_encrypt(&mut ctxt.ptr, self.ptr, zz.ptr) };
         Error::error_from_return(ret)?;
         Ok(ctxt)
+    }
+
+    pub fn encrypt_fieldelement<F: PrimeField>(&self, field: F) -> Result<Ctxt, Error> {
+        let zz = ZZ::from_fieldelement(field)?;
+        self.encrypt(&zz)
     }
 }
 
@@ -68,10 +73,25 @@ mod test {
         let mut rng = thread_rng();
         for _ in 0..TESTRUNS {
             let input = ark_bn254::Fr::rand(&mut rng);
-            let zz = ZZ::from_primefield(input).unwrap();
+            let zz = ZZ::from_fieldelement(input).unwrap();
             let ctxt = pubkey.encrypt(&zz).unwrap();
             let ptxt = seckey.decrypt(&ctxt).unwrap();
-            let decrypted = ptxt.to_primefield::<ark_bn254::Fr>().unwrap();
+            let decrypted = ptxt.to_fieldelement::<ark_bn254::Fr>().unwrap();
+            assert_eq!(decrypted, input);
+        }
+    }
+
+    #[test]
+    fn pubkey_encrypt_decrypt_fieldelemen() {
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(32109, &p, 700).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let pubkey = PubKey::from_seckey(&seckey).unwrap();
+        let mut rng = thread_rng();
+        for _ in 0..TESTRUNS {
+            let input = ark_bn254::Fr::rand(&mut rng);
+            let ctxt = pubkey.encrypt_fieldelement(input).unwrap();
+            let decrypted = seckey.decrypt_fieldelement::<ark_bn254::Fr>(&ctxt).unwrap();
             assert_eq!(decrypted, input);
         }
     }

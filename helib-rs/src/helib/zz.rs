@@ -82,7 +82,7 @@ impl ZZ {
         Self::from_le_bytes(&bytes)
     }
 
-    pub fn from_primefield<F: PrimeField>(input: F) -> Result<Self, Error> {
+    pub fn from_fieldelement<F: PrimeField>(input: F) -> Result<Self, Error> {
         Self::from_biguint(input.into())
     }
 
@@ -91,7 +91,7 @@ impl ZZ {
         Ok(BigUint::from_bytes_le(&bytes))
     }
 
-    pub fn to_primefield<F: PrimeField>(&self) -> Result<F, Error> {
+    pub fn to_fieldelement<F: PrimeField>(&self) -> Result<F, Error> {
         let biguint = self.to_biguint()?;
         Ok(F::from(biguint))
     }
@@ -120,8 +120,8 @@ mod test {
         let mut rng = thread_rng();
         for _ in 0..TESTRUNS {
             let input = ark_bn254::Fr::rand(&mut rng);
-            let zz = ZZ::from_primefield(input).unwrap();
-            let output = zz.to_primefield().unwrap();
+            let zz = ZZ::from_fieldelement(input).unwrap();
+            let output = zz.to_fieldelement().unwrap();
             assert_eq!(input, output);
         }
     }
@@ -148,7 +148,7 @@ mod test {
         for _ in 0..TESTRUNS {
             let input = ark_bn254::Fr::rand(&mut rng);
             let zz = ZZ::from_string(input.to_string()).unwrap();
-            let output = zz.to_primefield().unwrap();
+            let output = zz.to_fieldelement().unwrap();
             assert_eq!(input, output);
         }
     }
