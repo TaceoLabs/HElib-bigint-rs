@@ -1,0 +1,81 @@
+use ark_ff::{One, PrimeField};
+use num_bigint::BigUint;
+use rand::thread_rng;
+
+pub(crate) struct Galois {}
+
+impl Galois {
+    const GENERATOR: usize = 3;
+    const MAX_ATTEMPTS: usize = 100;
+
+    /// transforms rotation step to automorphism element
+    pub(crate) fn get_elt_from_step(n: usize, step: i32) -> usize {
+        let n2 = n << 1;
+        let row_size = n >> 1;
+        if step == 0 {
+            return n2 - 1;
+        }
+
+        let sign = step < 0;
+        let step_abs = step.unsigned_abs() as usize;
+
+        assert!(step_abs < row_size, "step count too large");
+        let step = if sign { row_size - step_abs } else { step_abs };
+
+        let gen = Self::GENERATOR;
+        let mut galois_element = 1;
+        for _ in 0..step {
+            galois_element = (galois_element * gen) % n2;
+        }
+        galois_element
+    }
+
+    pub(crate) fn get_elts_from_steps(n: usize, steps: &[i32]) -> Vec<usize> {
+        steps
+            .iter()
+            .map(|step| Self::get_elt_from_step(n, *step))
+            .collect()
+    }
+
+    /// plaintext prime p, for x^n/2 + 1
+    pub(crate) fn get_primitive_n_root_of_unity<F: PrimeField>(n: usize) -> Option<F> {
+        let p_biguint: BigUint = F::MODULUS.into();
+
+        assert_eq!(&p_biguint % n, BigUint::one(), "p must be 1 mod {}", n);
+
+        let group_size = (p_biguint - BigUint::one()) / n;
+        let group_size_u64 = group_size.to_u64_digits();
+        let n_pow = [(n >> 1) as u64];
+
+        let mut rand = thread_rng();
+        for _ in 0..Self::MAX_ATTEMPTS {
+            let x = F::rand(&mut rand);
+            let root = x.pow(&group_size_u64);
+            let check = root.pow(n_pow) + F::one();
+            if check.is_zero() {
+                return Some(root);
+            }
+        }
+        None
+    }
+
+    /// plaintext prime p, for x^n/2 + 1
+    pub(crate) fn get_minimal_primitive_n_root_of_unity<F: PrimeField>(n: usize) -> Option<F> {
+        let mut root = match Self::get_primitive_n_root_of_unity::<F>(n) {
+            Some(i) => i,
+            None => return None,
+        };
+
+        let gen = root.square();
+        let mut current_gen = root;
+
+        for _ in 0..n {
+            if current_gen < root {
+                root = current_gen;
+            }
+            current_gen *= gen;
+        }
+
+        Some(root)
+    }
+}

@@ -1,3 +1,4 @@
+pub(crate) mod encoding;
 pub(crate) mod helib;
 
 pub use helib::context::Context;
