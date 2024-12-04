@@ -69,16 +69,27 @@ impl ZZ {
         Ok(Self { ptr })
     }
 
-    pub fn from_primefield<F: PrimeField>(input: F) -> Result<Self, Error> {
-        let biguint: BigUint = input.into();
-        let bytes = biguint.to_bytes_le();
+    pub fn from_biguint(input: BigUint) -> Result<Self, Error> {
+        let bytes = input.to_bytes_le();
         Self::from_le_bytes(&bytes)
     }
 
-    pub fn to_primefield<F: PrimeField>(&self) -> Result<F, Error> {
+    pub fn from_primefield<F: PrimeField>(input: F) -> Result<Self, Error> {
+        Self::from_biguint(input.into())
+    }
+
+    pub fn to_biguint(&self) -> Result<BigUint, Error> {
         let bytes = self.to_le_bytes()?;
-        let biguint = BigUint::from_bytes_le(&bytes);
+        Ok(BigUint::from_bytes_le(&bytes))
+    }
+
+    pub fn to_primefield<F: PrimeField>(&self) -> Result<F, Error> {
+        let biguint = self.to_biguint()?;
         Ok(F::from(biguint))
+    }
+
+    pub fn char<F: PrimeField>() -> Result<Self, Error> {
+        Self::from_biguint(F::MODULUS.into())
     }
 }
 
@@ -130,6 +141,19 @@ mod test {
             let zz = ZZ::from_string(input.to_string()).unwrap();
             let output = zz.to_primefield().unwrap();
             assert_eq!(input, output);
+        }
+    }
+
+    #[test]
+    fn zz_random() {
+        let mod_ = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let mut prev = ZZ::random_mod(&mod_).unwrap().to_biguint().unwrap();
+        for _ in 0..TESTRUNS {
+            let zz = ZZ::random_mod(&mod_).unwrap();
+            let output = zz.to_biguint().unwrap();
+            assert!(output < ark_bn254::Fr::MODULUS.into());
+            assert_ne!(prev, output); // Very unlikely to be equal
+            prev = output;
         }
     }
 }
