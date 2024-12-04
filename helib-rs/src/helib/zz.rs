@@ -99,7 +99,7 @@ impl ZZ {
 
 impl Drop for ZZ {
     fn drop(&mut self) {
-        self.destroy().expect("ZZ Destroy failed");
+        self.destroy().expect("ZZ destroy failed");
     }
 }
 

@@ -15,8 +15,10 @@ impl Context {
         Ok(Self { ptr })
     }
 
-    pub fn security_level(&self) -> Result<CLong, Error> {
-        todo!("Implement security_level")
+    pub fn security_level(&self) -> Result<f64, Error> {
+        let mut res = 0f64;
+        let ret = unsafe { helib_bindings::context_get_security_level(self.ptr, &mut res) };
+        Ok(res)
     }
 
     pub fn destroy(&mut self) -> Result<(), Error> {
@@ -51,6 +53,14 @@ mod test {
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let mut context = Context::build(32109, &p, 700).unwrap();
         context.destroy().unwrap(); // Is also called in drop
+    }
+
+    #[test]
+    fn context_get_security_level() {
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(32109, &p, 700).unwrap();
+        let _level = context.security_level().unwrap();
+        println!("Security level: {}", _level);
     }
 
     #[test]
