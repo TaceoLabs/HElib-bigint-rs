@@ -1,5 +1,5 @@
 use super::{ctxt::Ctxt, error::Error, pubkey::PubKey};
-use crate::{Context, ZZ};
+use crate::{Context, EncodedPtxt, ZZ};
 use ark_ff::PrimeField;
 use std::{ffi::c_void, ptr::null_mut};
 
@@ -38,11 +38,26 @@ impl SecKey {
         Ok(ctxt)
     }
 
+    pub fn packed_encrypt(&self, ptxt: &EncodedPtxt) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret =
+            unsafe { helib_bindings::seckey_packed_encrypt(&mut ctxt.ptr, self.ptr, ptxt.ptr) };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
     pub fn decrypt(&self, ctxt: &Ctxt) -> Result<ZZ, Error> {
         let mut zz = ZZ::empty_pointer();
         let ret = unsafe { helib_bindings::seckey_decrypt(&mut zz.ptr, self.ptr, ctxt.ptr) };
         Error::error_from_return(ret)?;
         Ok(zz)
+    }
+
+    pub fn packed_decrypt(&self, ctxt: &Ctxt) -> Result<EncodedPtxt, Error> {
+        let mut ptxt = EncodedPtxt::empty_pointer();
+        let ret = unsafe { helib_bindings::seckey_decrypt(&mut ptxt.ptr, self.ptr, ctxt.ptr) };
+        Error::error_from_return(ret)?;
+        Ok(ptxt)
     }
 
     pub fn encrypt_fieldelement<F: PrimeField>(&self, field: F) -> Result<Ctxt, Error> {
@@ -65,7 +80,10 @@ impl Drop for SecKey {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ZZ;
+    use crate::{
+        helib::{ctxt, CLong},
+        BatchEncoder, ZZ,
+    };
     use ark_ff::UniformRand;
     use rand::thread_rng;
 
@@ -114,6 +132,26 @@ mod test {
             let ctxt = seckey.encrypt_fieldelement(input).unwrap();
             let decrypted = seckey.decrypt_fieldelement::<ark_bn254::Fr>(&ctxt).unwrap();
             assert_eq!(decrypted, input);
+        }
+    }
+
+    #[test]
+    fn seckey_packed_encrypt_decrypt() {
+        const N: usize = 32768;
+        let batch_encoder = BatchEncoder::new(N);
+
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(N as CLong, &p, 700).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+
+        let mut rng = thread_rng();
+        for _ in 0..TESTRUNS {
+            let input: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+            let ptxt = EncodedPtxt::encode(&input, &batch_encoder).unwrap();
+            let ctxt = seckey.packed_encrypt(&ptxt).unwrap();
+            let ptxt_ = seckey.packed_decrypt(&ctxt).unwrap();
+            let output = ptxt_.decode(&batch_encoder).unwrap();
+            assert_eq!(input, output);
         }
     }
 }
