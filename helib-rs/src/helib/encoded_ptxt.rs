@@ -64,7 +64,7 @@ impl EncodedPtxt {
             let val = zz.to_fieldelement()?;
             read.push(val);
         }
-        if read.len() > batch_encoder.slot_count() {
+        if read.len() != batch_encoder.slot_count() {
             return Err(Error::BatchSlots);
         }
         Ok(batch_encoder.decode(&read))
