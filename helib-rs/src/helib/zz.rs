@@ -31,6 +31,10 @@ impl ZZ {
         Ok(len)
     }
 
+    pub fn is_empty(&self) -> Result<bool, Error> {
+        Ok(self.num_bytes()? == 0)
+    }
+
     pub fn len(&self) -> Result<usize, Error> {
         Ok(self.num_bytes()? as usize)
     }
