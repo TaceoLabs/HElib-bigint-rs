@@ -120,11 +120,13 @@ mod test {
 
     #[test]
     fn packed_arithmetic_test() {
-        const N: usize = 32768;
+        const N: usize = 16384;
+        const M: usize = 2 * N;
+
         let batch_encoder = BatchEncoder::new(N);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
-        let context = Context::build(N as CLong, &p, 700).unwrap();
+        let context = Context::build(M as CLong, &p, 700).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
 
