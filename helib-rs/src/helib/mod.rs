@@ -1,5 +1,6 @@
 pub(crate) mod context;
 pub(crate) mod ctxt;
+pub(crate) mod encoded_ptxt;
 pub(crate) mod error;
 pub(crate) mod pubkey;
 pub(crate) mod seckey;

@@ -10,6 +10,7 @@ pub struct NTTProcessor<F: PrimeField> {
 }
 
 impl<F: PrimeField> NTTProcessor<F> {
+    #[allow(dead_code)]
     pub(crate) fn new(n: usize, root: F) -> Self {
         assert!(n.is_power_of_two());
         let root_inverse = root.inverse().expect("mod inverse not found");
@@ -40,6 +41,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn negacylcic_preprocess_two(&self, a: &mut [F], b: &mut [F]) {
         debug_assert_eq!(a.len(), self.n);
         debug_assert_eq!(b.len(), self.n);
@@ -79,6 +81,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         table
     }
 
+    #[allow(dead_code)]
     pub(crate) fn transform(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
         self.transform_inplace(&mut output);
@@ -116,6 +119,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn inverse_transform(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
         self.inverse_transform_inplace(&mut output);

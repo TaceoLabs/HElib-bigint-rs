@@ -30,6 +30,7 @@ impl Galois {
         galois_element
     }
 
+    #[expect(dead_code)]
     pub(crate) fn get_elts_from_steps(n: usize, steps: &[i32]) -> Vec<usize> {
         steps
             .iter()

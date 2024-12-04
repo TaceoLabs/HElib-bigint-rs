@@ -1,20 +1,24 @@
 use super::{galois::Galois, ntt::NTTProcessor};
 use ark_ff::PrimeField;
 
-struct BatchEncoder<F: PrimeField> {
+pub struct BatchEncoder<F: PrimeField> {
     n: usize,
     index_map: Vec<usize>,
     ntt_proc: NTTProcessor<F>,
 }
 
 impl<F: PrimeField> BatchEncoder<F> {
-    pub(crate) fn new(n: usize) -> Self {
+    pub fn new(n: usize) -> Self {
         let root = Galois::get_minimal_primitive_n_root_of_unity(2 * n).expect("no root found");
         Self {
             n,
             index_map: Self::populate_index_map(n),
             ntt_proc: NTTProcessor::new_negacylic(n, root),
         }
+    }
+
+    pub fn slot_count(&self) -> usize {
+        self.n
     }
 
     pub(crate) fn populate_index_map(slots: usize) -> Vec<usize> {
@@ -43,11 +47,11 @@ impl<F: PrimeField> BatchEncoder<F> {
         index_map
     }
 
-    pub(crate) fn rotate_encoded(input: &[F], index: i32) -> Vec<F> {
+    pub fn rotate_encoded(input: &[F], index: i32) -> Vec<F> {
         Galois::automorphism(input, Galois::get_elt_from_step(input.len(), index))
     }
 
-    pub(crate) fn encode(&self, input: &[F]) -> Vec<F> {
+    pub fn encode(&self, input: &[F]) -> Vec<F> {
         let mut encoded = vec![F::zero(); self.n];
 
         for (i, val) in input.iter().enumerate() {
@@ -59,7 +63,7 @@ impl<F: PrimeField> BatchEncoder<F> {
         encoded
     }
 
-    pub(crate) fn decode(&self, input: &[F]) -> Vec<F> {
+    pub fn decode(&self, input: &[F]) -> Vec<F> {
         let mut transformed = input.to_vec();
         self.ntt_proc.negacylcic_preprocess(&mut transformed);
         self.ntt_proc.transform_inplace(&mut transformed);

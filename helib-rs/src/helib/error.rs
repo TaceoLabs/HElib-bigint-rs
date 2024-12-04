@@ -7,6 +7,9 @@ pub enum Error {
     /// Invalid pointer provided
     #[error("Invalid pointer")]
     Pointer,
+    /// Too few slots available
+    #[error("Too few slots available")]
+    BatchSlots,
     /// Some other error has occured.
     #[error("Err: {0}")]
     Other(String),
