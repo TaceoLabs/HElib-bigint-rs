@@ -22,10 +22,9 @@ impl Galois {
         assert!(step_abs < row_size, "step count too large");
         let step = if sign { row_size - step_abs } else { step_abs };
 
-        let gen = Self::GENERATOR;
         let mut galois_element = 1;
         for _ in 0..step {
-            galois_element = (galois_element * gen) % n2;
+            galois_element = (galois_element * Self::GENERATOR) % n2;
         }
         galois_element
     }
