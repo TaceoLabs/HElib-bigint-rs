@@ -309,4 +309,76 @@ mod test {
             );
         }
     }
+
+    #[test]
+    fn packed_arithmetic_with_const_inplace_test() {
+        const N: usize = 16384;
+        const M: usize = 2 * N;
+
+        let batch_encoder = BatchEncoder::new(N);
+
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(M as CLong, &p, 700).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let pubkey = PubKey::from_seckey(&seckey).unwrap();
+
+        let mut rng = thread_rng();
+        for _ in 0..TESTRUNS {
+            let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+            let b: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+            let enc_a = EncodedPtxt::encode(&a, &batch_encoder).unwrap();
+            let enc_b = EncodedPtxt::encode(&b, &batch_encoder).unwrap();
+            let ctxt_a = pubkey.packed_encrypt(&enc_a).unwrap();
+
+            let mut ctxt_add = ctxt_a.clone();
+            ctxt_add += &enc_b;
+            let mut ctxt_sub = ctxt_a.clone();
+            ctxt_sub -= &enc_b;
+            let mut ctxt_sub2 = ctxt_a.clone();
+            ctxt_sub2
+                .ctxt_sub_from_packed_constant_inplace(&enc_b)
+                .unwrap();
+            let mut ctxt_mul = ctxt_a.clone();
+            ctxt_mul *= &enc_b;
+
+            let enc_add = seckey.packed_decrypt(&ctxt_add).unwrap();
+            let enc_sub = seckey.packed_decrypt(&ctxt_sub).unwrap();
+            let enc_sub2 = seckey.packed_decrypt(&ctxt_sub2).unwrap();
+            let enc_mul = seckey.packed_decrypt(&ctxt_mul).unwrap();
+
+            let add = enc_add.decode(&batch_encoder).unwrap();
+            let sub = enc_sub.decode(&batch_encoder).unwrap();
+            let sub2 = enc_sub2.decode(&batch_encoder).unwrap();
+            let mul = enc_mul.decode(&batch_encoder).unwrap();
+
+            assert_eq!(
+                add,
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(a, b)| a + b)
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                sub,
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(a, b)| a - b)
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                sub2,
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(a, b)| b - a)
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                mul,
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(a, b)| a * b)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
 }

@@ -193,6 +193,44 @@ impl Ctxt {
         Error::error_from_return(ret)
     }
 
+    // Arithmetic with packed constants in place
+
+    pub fn ctxt_add_by_packed_constant_inplace(
+        &mut self,
+        other: &EncodedPtxt,
+    ) -> Result<(), Error> {
+        let ret =
+            unsafe { helib_bindings::ctxt_add_by_packed_constant_inplace(self.ptr, other.ptr) };
+        Error::error_from_return(ret)
+    }
+
+    pub fn ctxt_sub_by_packed_constant_inplace(
+        &mut self,
+        other: &EncodedPtxt,
+    ) -> Result<(), Error> {
+        let ret =
+            unsafe { helib_bindings::ctxt_sub_by_packed_constant_inplace(self.ptr, other.ptr) };
+        Error::error_from_return(ret)
+    }
+
+    pub fn ctxt_sub_from_packed_constant_inplace(
+        &mut self,
+        other: &EncodedPtxt,
+    ) -> Result<(), Error> {
+        let ret =
+            unsafe { helib_bindings::ctxt_sub_from_packed_constant_inplace(self.ptr, other.ptr) };
+        Error::error_from_return(ret)
+    }
+
+    pub fn ctxt_mul_by_packed_constant_inplace(
+        &mut self,
+        other: &EncodedPtxt,
+    ) -> Result<(), Error> {
+        let ret =
+            unsafe { helib_bindings::ctxt_mult_by_packed_constant_inplace(self.ptr, other.ptr) };
+        Error::error_from_return(ret)
+    }
+
     // Arithmetic with primefield elements
 
     pub fn ctxt_add_by_field_element<F: PrimeField>(&self, other: F) -> Result<Ctxt, Error> {
@@ -407,6 +445,29 @@ impl SubAssign<&ZZ> for Ctxt {
 impl MulAssign<&ZZ> for Ctxt {
     fn mul_assign(&mut self, other: &ZZ) {
         self.ctxt_mul_by_constant_inplace(other)
+            .expect("MulAssign constant failed")
+    }
+}
+
+// Arithmetic with packed constants in place
+
+impl AddAssign<&EncodedPtxt> for Ctxt {
+    fn add_assign(&mut self, other: &EncodedPtxt) {
+        self.ctxt_add_by_packed_constant_inplace(other)
+            .expect("AddAssign constant failed")
+    }
+}
+
+impl SubAssign<&EncodedPtxt> for Ctxt {
+    fn sub_assign(&mut self, other: &EncodedPtxt) {
+        self.ctxt_sub_by_packed_constant_inplace(other)
+            .expect("SubAssign constant failed")
+    }
+}
+
+impl MulAssign<&EncodedPtxt> for Ctxt {
+    fn mul_assign(&mut self, other: &EncodedPtxt) {
+        self.ctxt_mul_by_packed_constant_inplace(other)
             .expect("MulAssign constant failed")
     }
 }
