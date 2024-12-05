@@ -46,6 +46,7 @@ fn babystep_giantstep<F: PrimeField>(
     // prepare for non-full-packed rotations
     if slots != dim << 1 {
         let mut state_rot = ctxt.ctxt_clone()?;
+        // Here we loose tons of noise budget...
         galois_engine.rotate_ctxt(&mut state_rot, -(dim as i32))?;
         ctxt.ctxt_add_inplace(&state_rot)?;
     }
@@ -79,6 +80,25 @@ fn babystep_giantstep<F: PrimeField>(
     Ok(())
 }
 
+fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
+    let mut result = Vec::new();
+
+    let dim = n1 * n2;
+    if slots != dim << 1 {
+        result.reserve(n2 + 1);
+        result.push(-(dim as i32));
+    } else {
+        result.reserve(n2);
+    }
+
+    result.push(1);
+    for k in 1..n2 {
+        result.push((k * n1) as i32);
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -88,7 +108,7 @@ mod test {
 
     const N: usize = 16384;
     const M: usize = 2 * N;
-    const BITS: CLong = 700;
+    const BITS: CLong = 850;
 
     fn plain_mat_vec<F: PrimeField>(matrix: &[Vec<F>], vec: &[F]) -> Vec<F> {
         assert_eq!(matrix.len(), vec.len());
@@ -101,9 +121,12 @@ mod test {
 
     #[test]
     fn bsgs_test() {
-        let dim = N >> 1;
-        let n2 = 1 << (dim.ilog2() >> 1);
-        let n1 = dim / n2;
+        // let dim = N >> 1;
+        // let n2 = 1 << (dim.ilog2() >> 1);
+        // let n1 = dim / n2;
+        let dim = 200;
+        let n1 = 20;
+        let n2 = 10;
         let mut rng = thread_rng();
 
         let vec = (0..dim)
@@ -126,6 +149,10 @@ mod test {
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
         let batch_encoder = BatchEncoder::new(N);
+
+        for index in bsgs_indices(n1, n2, N) {
+            galois.generate_key_for_step(&seckey, index).unwrap();
+        }
 
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
