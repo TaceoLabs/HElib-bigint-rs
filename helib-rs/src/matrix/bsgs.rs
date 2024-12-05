@@ -19,7 +19,7 @@ fn babystep_giantstep_inner(
     if slots != dim << 1 {
         let mut state_rot = ctxt.ctxt_clone()?;
         // Here we loose tons of noise budget...
-        galois_engine.rotate_ctxt(&mut state_rot, -(dim as i32))?;
+        galois_engine.rotate_ctxt(&mut state_rot, dim as i32)?;
         ctxt.ctxt_add_inplace(&state_rot)?;
     }
 
@@ -30,7 +30,7 @@ fn babystep_giantstep_inner(
     rot.push(ctxt.ctxt_clone()?);
     for j in 1..n1 {
         let mut tmp = rot[j - 1].ctxt_clone()?;
-        galois_engine.rotate_ctxt(&mut tmp, 1)?;
+        galois_engine.rotate_ctxt(&mut tmp, -1)?;
         rot.push(tmp);
     }
 
@@ -44,7 +44,7 @@ fn babystep_giantstep_inner(
         if k == 0 {
             outer_sum = inner_sum;
         } else {
-            galois_engine.rotate_ctxt(&mut inner_sum, (k * n1) as i32)?;
+            galois_engine.rotate_ctxt(&mut inner_sum, -((k * n1) as i32))?;
             outer_sum.ctxt_add_inplace(&inner_sum)?;
         }
     }
@@ -99,6 +99,7 @@ fn encode_one_matrix<F: PrimeField>(
 ) -> Result<Vec<EncodedPtxt>, Error> {
     let dim = matrix.len();
     let slots = batch_encoder.slot_count();
+    let halfslots = slots >> 1;
     assert!(dim << 1 == slots || dim << 2 < slots);
     assert_eq!(dim, n1 * n2);
 
@@ -106,25 +107,23 @@ fn encode_one_matrix<F: PrimeField>(
 
     for i in 0..dim {
         let k = i / n1;
-        let mut diag = Vec::new();
-        if slots != dim << 1 {
-            diag.reserve(dim + k * n1);
-        } else {
-            diag.reserve(dim);
-        }
+        let mut diag = Vec::with_capacity(halfslots);
 
         for (j, matrix) in matrix.iter().enumerate() {
-            diag.push(matrix[(i + j) % dim]);
+            diag.push(matrix[(j + dim - i) % dim]);
         }
         // rotate:
         if k != 0 {
-            diag.rotate_left(dim - k * n1);
+            diag.rotate_left(k * n1);
         }
         // prepare for non-full-packed rotations
         if slots != dim << 1 {
+            diag.resize(halfslots, F::zero());
             for index in 0..k * n1 {
-                diag.push(diag[index]);
-                diag[index] = F::zero();
+                let index_src = dim - 1 - index;
+                let index_des = halfslots - 1 - index;
+                diag[index_des] = diag[index_src];
+                diag[index_src] = F::zero();
             }
         }
         let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
@@ -143,6 +142,7 @@ fn encode_two_matrices<F: PrimeField>(
     let dim = matrix1.len();
     assert_eq!(dim, matrix2.len());
     let slots = batch_encoder.slot_count();
+    let halfslots = slots >> 1;
     assert!(dim << 1 == slots || dim << 2 < slots);
     assert_eq!(dim, n1 * n2);
 
@@ -164,11 +164,11 @@ fn encode_two_matrices<F: PrimeField>(
         }
         // prepare for non-full-packed rotations
         if slots != dim << 1 {
-            diag.resize(slots >> 1, F::zero());
-            tmp.resize(slots >> 1, F::zero());
+            diag.resize(halfslots, F::zero());
+            tmp.resize(halfslots, F::zero());
             for index in 0..k * n1 {
                 let index_src = dim - 1 - index;
-                let index_des = (slots >> 1) - 1 - index;
+                let index_des = halfslots - 1 - index;
                 diag[index_des] = diag[index_src];
                 tmp[index_des] = tmp[index_src];
                 diag[index_src] = F::zero();
@@ -176,9 +176,7 @@ fn encode_two_matrices<F: PrimeField>(
             }
         }
         diag.resize(slots, F::zero());
-        for j in slots >> 1..slots {
-            diag[j] = tmp[j - (slots >> 1)];
-        }
+        diag[halfslots..slots].copy_from_slice(&tmp[..(slots - halfslots)]);
         let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
         encoded.push(enc);
     }
@@ -191,14 +189,14 @@ fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
     let dim = n1 * n2;
     if slots != dim << 1 {
         result.reserve(n2 + 1);
-        result.push(-(dim as i32));
+        result.push(dim as i32);
     } else {
         result.reserve(n2);
     }
 
-    result.push(1);
+    result.push(-1);
     for k in 1..n2 {
-        result.push((k * n1) as i32);
+        result.push(-((k * n1) as i32));
     }
 
     result
@@ -208,7 +206,7 @@ fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
 mod test {
     use super::*;
     use crate::{helib::CLong, Context, PubKey, SecKey, ZZ};
-    use ark_ff::UniformRand;
+    use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
 
     const N: usize = 16384;
@@ -279,7 +277,10 @@ mod test {
         let n2 = 10;
         let mut rng = thread_rng();
 
-        let vec = (0..dim << 1)
+        let vec1 = (0..dim)
+            .map(|_| ark_bn254::Fr::rand(&mut rng))
+            .collect::<Vec<_>>();
+        let vec2 = (0..dim)
             .map(|_| ark_bn254::Fr::rand(&mut rng))
             .collect::<Vec<_>>();
         let mat1 = (0..dim)
@@ -297,8 +298,8 @@ mod test {
             })
             .collect::<Vec<_>>();
 
-        let expected1 = plain_mat_vec(&mat1, &vec[..dim]);
-        let expected2 = plain_mat_vec(&mat2, &vec[dim..]);
+        let expected1 = plain_mat_vec(&mat1, &vec1);
+        let expected2 = plain_mat_vec(&mat2, &vec2);
 
         // HE
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
@@ -312,6 +313,13 @@ mod test {
             galois.generate_key_for_step(&seckey, index).unwrap();
         }
 
+        let slots = batch_encoder.slot_count();
+        let halfslots = slots >> 1;
+        let mut vec = Vec::with_capacity(halfslots + dim);
+        vec.extend_from_slice(&vec1);
+        vec.resize(halfslots, ark_bn254::Fr::zero());
+        vec.extend_from_slice(&vec2);
+
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
@@ -321,6 +329,6 @@ mod test {
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
         let decoded = decrypted.decode(&batch_encoder).unwrap();
         assert_eq!(expected1, &decoded[..dim]);
-        assert_eq!(expected2, &decoded[dim..dim << 1]);
+        assert_eq!(expected2, &decoded[halfslots..halfslots + dim]);
     }
 }
