@@ -5,203 +5,206 @@ use crate::{
 };
 use ark_ff::PrimeField;
 
-fn babystep_giantstep_inner(
-    ctxt: &mut Ctxt,
-    encoded_diags: &[EncodedPtxt],
-    galois_engine: &GaloisEngine,
-    n1: usize,
-    n2: usize,
-    slots: usize,
-) -> Result<(), Error> {
-    let dim = encoded_diags.len();
-    assert_eq!(dim, n1 * n2);
-    // prepare for non-full-packed rotations
-    if slots != dim << 1 {
-        let mut state_rot = ctxt.ctxt_clone()?;
-        // Here we loose tons of noise budget...
-        galois_engine.rotate_ctxt(&mut state_rot, dim as i32)?;
-        ctxt.ctxt_add_inplace(&state_rot)?;
-    }
+pub struct Bsgs {}
 
-    let mut outer_sum = Ctxt::empty_pointer();
+impl Bsgs {
+    fn babystep_giantstep_inner(
+        ctxt: &mut Ctxt,
+        encoded_diags: &[EncodedPtxt],
+        galois_engine: &GaloisEngine,
+        n1: usize,
+        n2: usize,
+        slots: usize,
+    ) -> Result<(), Error> {
+        let dim = encoded_diags.len();
+        assert_eq!(dim, n1 * n2);
+        // prepare for non-full-packed rotations
+        if slots != dim << 1 {
+            let mut state_rot = ctxt.ctxt_clone()?;
+            // Here we loose tons of noise budget...
+            galois_engine.rotate_ctxt(&mut state_rot, dim as i32)?;
+            ctxt.ctxt_add_inplace(&state_rot)?;
+        }
 
-    // prepare rotations
-    let mut rot = Vec::with_capacity(n1);
-    rot.push(ctxt.ctxt_clone()?);
-    for j in 1..n1 {
-        let mut tmp = rot[j - 1].ctxt_clone()?;
-        galois_engine.rotate_ctxt(&mut tmp, -1)?;
-        rot.push(tmp);
-    }
+        let mut outer_sum = Ctxt::empty_pointer();
 
-    for k in 0..n2 {
-        let mut inner_sum = rot[0].ctxt_mul_by_packed_constant(&encoded_diags[k * n1])?;
+        // prepare rotations
+        let mut rot = Vec::with_capacity(n1);
+        rot.push(ctxt.ctxt_clone()?);
         for j in 1..n1 {
-            let tmp = rot[j].ctxt_mul_by_packed_constant(&encoded_diags[k * n1 + j])?;
-            inner_sum.ctxt_add_inplace(&tmp)?;
+            let mut tmp = rot[j - 1].ctxt_clone()?;
+            galois_engine.rotate_ctxt(&mut tmp, -1)?;
+            rot.push(tmp);
         }
 
-        if k == 0 {
-            outer_sum = inner_sum;
+        for k in 0..n2 {
+            let mut inner_sum = rot[0].ctxt_mul_by_packed_constant(&encoded_diags[k * n1])?;
+            for j in 1..n1 {
+                let tmp = rot[j].ctxt_mul_by_packed_constant(&encoded_diags[k * n1 + j])?;
+                inner_sum.ctxt_add_inplace(&tmp)?;
+            }
+
+            if k == 0 {
+                outer_sum = inner_sum;
+            } else {
+                galois_engine.rotate_ctxt(&mut inner_sum, -((k * n1) as i32))?;
+                outer_sum.ctxt_add_inplace(&inner_sum)?;
+            }
+        }
+        *ctxt = outer_sum;
+        Ok(())
+    }
+
+    pub fn babystep_giantstep<F: PrimeField>(
+        ctxt: &mut Ctxt,
+        matrix: &[Vec<F>],
+        batch_encoder: &BatchEncoder<F>,
+        galois_engine: &GaloisEngine,
+        n1: usize,
+        n2: usize,
+    ) -> Result<(), Error> {
+        let encoded = Self::encode_one_matrix(matrix, batch_encoder, n1, n2)?;
+        Self::babystep_giantstep_inner(
+            ctxt,
+            &encoded,
+            galois_engine,
+            n1,
+            n2,
+            batch_encoder.slot_count(),
+        )
+    }
+
+    pub fn babystep_giantstep_two_matrices<F: PrimeField>(
+        ctxt: &mut Ctxt,
+        matrix1: &[Vec<F>],
+        matrix2: &[Vec<F>],
+        batch_encoder: &BatchEncoder<F>,
+        galois_engine: &GaloisEngine,
+        n1: usize,
+        n2: usize,
+    ) -> Result<(), Error> {
+        let encoded = Self::encode_two_matrices(matrix1, matrix2, batch_encoder, n1, n2)?;
+        Self::babystep_giantstep_inner(
+            ctxt,
+            &encoded,
+            galois_engine,
+            n1,
+            n2,
+            batch_encoder.slot_count(),
+        )
+    }
+
+    fn encode_one_matrix<F: PrimeField>(
+        matrix: &[Vec<F>],
+        batch_encoder: &BatchEncoder<F>,
+        n1: usize,
+        n2: usize,
+    ) -> Result<Vec<EncodedPtxt>, Error> {
+        let dim = matrix.len();
+        let slots = batch_encoder.slot_count();
+        let halfslots = slots >> 1;
+        assert!(dim << 1 == slots || dim << 2 < slots);
+        assert_eq!(dim, n1 * n2);
+
+        let mut encoded = Vec::with_capacity(dim);
+
+        for i in 0..dim {
+            let k = i / n1;
+            let mut diag = Vec::with_capacity(halfslots);
+
+            for (j, matrix) in matrix.iter().enumerate() {
+                diag.push(matrix[(j + dim - i) % dim]);
+            }
+            // rotate:
+            if k != 0 {
+                diag.rotate_left(k * n1);
+            }
+            // prepare for non-full-packed rotations
+            if slots != dim << 1 {
+                diag.resize(halfslots, F::zero());
+                for index in 0..k * n1 {
+                    let index_src = dim - 1 - index;
+                    let index_des = halfslots - 1 - index;
+                    diag[index_des] = diag[index_src];
+                    diag[index_src] = F::zero();
+                }
+            }
+            let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
+            encoded.push(enc);
+        }
+        Ok(encoded)
+    }
+
+    fn encode_two_matrices<F: PrimeField>(
+        matrix1: &[Vec<F>],
+        matrix2: &[Vec<F>],
+        batch_encoder: &BatchEncoder<F>,
+        n1: usize,
+        n2: usize,
+    ) -> Result<Vec<EncodedPtxt>, Error> {
+        let dim = matrix1.len();
+        assert_eq!(dim, matrix2.len());
+        let slots = batch_encoder.slot_count();
+        let halfslots = slots >> 1;
+        assert!(dim << 1 == slots || dim << 2 < slots);
+        assert_eq!(dim, n1 * n2);
+
+        let mut encoded = Vec::with_capacity(dim);
+
+        for i in 0..dim {
+            let k = i / n1;
+            let mut diag = Vec::with_capacity(slots);
+            let mut tmp = Vec::with_capacity(dim);
+
+            for (j, (matrix1, matrix2)) in matrix1.iter().zip(matrix2.iter()).enumerate() {
+                diag.push(matrix1[(j + dim - i) % dim]);
+                tmp.push(matrix2[(j + dim - i) % dim]);
+            }
+            // rotate:
+            if k != 0 {
+                diag.rotate_left(k * n1);
+                tmp.rotate_left(k * n1);
+            }
+            // prepare for non-full-packed rotations
+            if slots != dim << 1 {
+                diag.resize(halfslots, F::zero());
+                tmp.resize(halfslots, F::zero());
+                for index in 0..k * n1 {
+                    let index_src = dim - 1 - index;
+                    let index_des = halfslots - 1 - index;
+                    diag[index_des] = diag[index_src];
+                    tmp[index_des] = tmp[index_src];
+                    diag[index_src] = F::zero();
+                    tmp[index_src] = F::zero();
+                }
+            }
+            diag.resize(slots, F::zero());
+            diag[halfslots..slots].copy_from_slice(&tmp[..(slots - halfslots)]);
+            let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
+            encoded.push(enc);
+        }
+        Ok(encoded)
+    }
+
+    pub fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
+        let mut result = Vec::new();
+
+        let dim = n1 * n2;
+        if slots != dim << 1 {
+            result.reserve(n2 + 1);
+            result.push(dim as i32);
         } else {
-            galois_engine.rotate_ctxt(&mut inner_sum, -((k * n1) as i32))?;
-            outer_sum.ctxt_add_inplace(&inner_sum)?;
+            result.reserve(n2);
         }
+
+        result.push(-1);
+        for k in 1..n2 {
+            result.push(-((k * n1) as i32));
+        }
+
+        result
     }
-    *ctxt = outer_sum;
-    Ok(())
 }
-
-fn babystep_giantstep<F: PrimeField>(
-    ctxt: &mut Ctxt,
-    matrix: &[Vec<F>],
-    batch_encoder: &BatchEncoder<F>,
-    galois_engine: &GaloisEngine,
-    n1: usize,
-    n2: usize,
-) -> Result<(), Error> {
-    let encoded = encode_one_matrix(matrix, batch_encoder, n1, n2)?;
-    babystep_giantstep_inner(
-        ctxt,
-        &encoded,
-        galois_engine,
-        n1,
-        n2,
-        batch_encoder.slot_count(),
-    )
-}
-
-fn babystep_giantstep_two_matrices<F: PrimeField>(
-    ctxt: &mut Ctxt,
-    matrix1: &[Vec<F>],
-    matrix2: &[Vec<F>],
-    batch_encoder: &BatchEncoder<F>,
-    galois_engine: &GaloisEngine,
-    n1: usize,
-    n2: usize,
-) -> Result<(), Error> {
-    let encoded = encode_two_matrices(matrix1, matrix2, batch_encoder, n1, n2)?;
-    babystep_giantstep_inner(
-        ctxt,
-        &encoded,
-        galois_engine,
-        n1,
-        n2,
-        batch_encoder.slot_count(),
-    )
-}
-
-fn encode_one_matrix<F: PrimeField>(
-    matrix: &[Vec<F>],
-    batch_encoder: &BatchEncoder<F>,
-    n1: usize,
-    n2: usize,
-) -> Result<Vec<EncodedPtxt>, Error> {
-    let dim = matrix.len();
-    let slots = batch_encoder.slot_count();
-    let halfslots = slots >> 1;
-    assert!(dim << 1 == slots || dim << 2 < slots);
-    assert_eq!(dim, n1 * n2);
-
-    let mut encoded = Vec::with_capacity(dim);
-
-    for i in 0..dim {
-        let k = i / n1;
-        let mut diag = Vec::with_capacity(halfslots);
-
-        for (j, matrix) in matrix.iter().enumerate() {
-            diag.push(matrix[(j + dim - i) % dim]);
-        }
-        // rotate:
-        if k != 0 {
-            diag.rotate_left(k * n1);
-        }
-        // prepare for non-full-packed rotations
-        if slots != dim << 1 {
-            diag.resize(halfslots, F::zero());
-            for index in 0..k * n1 {
-                let index_src = dim - 1 - index;
-                let index_des = halfslots - 1 - index;
-                diag[index_des] = diag[index_src];
-                diag[index_src] = F::zero();
-            }
-        }
-        let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
-        encoded.push(enc);
-    }
-    Ok(encoded)
-}
-
-fn encode_two_matrices<F: PrimeField>(
-    matrix1: &[Vec<F>],
-    matrix2: &[Vec<F>],
-    batch_encoder: &BatchEncoder<F>,
-    n1: usize,
-    n2: usize,
-) -> Result<Vec<EncodedPtxt>, Error> {
-    let dim = matrix1.len();
-    assert_eq!(dim, matrix2.len());
-    let slots = batch_encoder.slot_count();
-    let halfslots = slots >> 1;
-    assert!(dim << 1 == slots || dim << 2 < slots);
-    assert_eq!(dim, n1 * n2);
-
-    let mut encoded = Vec::with_capacity(dim);
-
-    for i in 0..dim {
-        let k = i / n1;
-        let mut diag = Vec::with_capacity(slots);
-        let mut tmp = Vec::with_capacity(dim);
-
-        for (j, (matrix1, matrix2)) in matrix1.iter().zip(matrix2.iter()).enumerate() {
-            diag.push(matrix1[(j + dim - i) % dim]);
-            tmp.push(matrix2[(j + dim - i) % dim]);
-        }
-        // rotate:
-        if k != 0 {
-            diag.rotate_left(k * n1);
-            tmp.rotate_left(k * n1);
-        }
-        // prepare for non-full-packed rotations
-        if slots != dim << 1 {
-            diag.resize(halfslots, F::zero());
-            tmp.resize(halfslots, F::zero());
-            for index in 0..k * n1 {
-                let index_src = dim - 1 - index;
-                let index_des = halfslots - 1 - index;
-                diag[index_des] = diag[index_src];
-                tmp[index_des] = tmp[index_src];
-                diag[index_src] = F::zero();
-                tmp[index_src] = F::zero();
-            }
-        }
-        diag.resize(slots, F::zero());
-        diag[halfslots..slots].copy_from_slice(&tmp[..(slots - halfslots)]);
-        let enc = EncodedPtxt::encode(&diag, batch_encoder)?;
-        encoded.push(enc);
-    }
-    Ok(encoded)
-}
-
-fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
-    let mut result = Vec::new();
-
-    let dim = n1 * n2;
-    if slots != dim << 1 {
-        result.reserve(n2 + 1);
-        result.push(dim as i32);
-    } else {
-        result.reserve(n2);
-    }
-
-    result.push(-1);
-    for k in 1..n2 {
-        result.push(-((k * n1) as i32));
-    }
-
-    result
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -253,14 +256,14 @@ mod test {
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
         let batch_encoder = BatchEncoder::new(N);
 
-        for index in bsgs_indices(n1, n2, N) {
+        for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
         }
 
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
-        babystep_giantstep(&mut ctxt, &mat, &batch_encoder, &galois, n1, n2).unwrap();
+        Bsgs::babystep_giantstep(&mut ctxt, &mat, &batch_encoder, &galois, n1, n2).unwrap();
 
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
         let decoded = decrypted.decode(&batch_encoder).unwrap();
@@ -309,7 +312,7 @@ mod test {
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
         let batch_encoder = BatchEncoder::new(N);
 
-        for index in bsgs_indices(n1, n2, N) {
+        for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
         }
 
@@ -323,8 +326,16 @@ mod test {
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
-        babystep_giantstep_two_matrices(&mut ctxt, &mat1, &mat2, &batch_encoder, &galois, n1, n2)
-            .unwrap();
+        Bsgs::babystep_giantstep_two_matrices(
+            &mut ctxt,
+            &mat1,
+            &mat2,
+            &batch_encoder,
+            &galois,
+            n1,
+            n2,
+        )
+        .unwrap();
 
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
         let decoded = decrypted.decode(&batch_encoder).unwrap();
