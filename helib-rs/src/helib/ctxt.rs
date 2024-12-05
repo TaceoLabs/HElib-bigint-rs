@@ -1,5 +1,5 @@
 use super::{error::Error, CLong};
-use crate::ZZ;
+use crate::{EncodedPtxt, ZZ};
 use ark_ff::PrimeField;
 use std::{
     ffi::c_void,
@@ -129,6 +129,44 @@ impl Ctxt {
         let mut ctxt = Ctxt::empty_pointer();
         let ret =
             unsafe { helib_bindings::ctxt_mult_by_constant(&mut ctxt.ptr, self.ptr, other.ptr) };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
+    // Arithmetic with packed constants
+
+    pub fn ctxt_add_by_packed_constant(&self, other: &EncodedPtxt) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret = unsafe {
+            helib_bindings::ctxt_add_by_packed_constant(&mut ctxt.ptr, self.ptr, other.ptr)
+        };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
+    pub fn ctxt_sub_by_packed_constant(&self, other: &EncodedPtxt) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret = unsafe {
+            helib_bindings::ctxt_sub_by_packed_constant(&mut ctxt.ptr, self.ptr, other.ptr)
+        };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
+    pub fn ctxt_sub_from_packed_constant(&self, other: &EncodedPtxt) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret = unsafe {
+            helib_bindings::ctxt_sub_from_packed_constant(&mut ctxt.ptr, other.ptr, self.ptr)
+        };
+        Error::error_from_return(ret)?;
+        Ok(ctxt)
+    }
+
+    pub fn ctxt_mul_by_packed_constant(&self, other: &EncodedPtxt) -> Result<Ctxt, Error> {
+        let mut ctxt = Ctxt::empty_pointer();
+        let ret = unsafe {
+            helib_bindings::ctxt_mult_by_packed_constant(&mut ctxt.ptr, self.ptr, other.ptr)
+        };
         Error::error_from_return(ret)?;
         Ok(ctxt)
     }
@@ -308,6 +346,45 @@ impl Mul<&ZZ> for &Ctxt {
     fn mul(self, other: &ZZ) -> Ctxt {
         self.ctxt_mul_by_constant(other)
             .expect("Mul constant failed")
+    }
+}
+
+// Arithmetic with packed constants
+
+impl Add<&EncodedPtxt> for &Ctxt {
+    type Output = Ctxt;
+
+    fn add(self, other: &EncodedPtxt) -> Ctxt {
+        self.ctxt_add_by_packed_constant(other)
+            .expect("Add packed constant failed")
+    }
+}
+
+impl Sub<&EncodedPtxt> for &Ctxt {
+    type Output = Ctxt;
+
+    fn sub(self, other: &EncodedPtxt) -> Ctxt {
+        self.ctxt_sub_by_packed_constant(other)
+            .expect("Sub packed constant failed")
+    }
+}
+
+impl Sub<&Ctxt> for &EncodedPtxt {
+    type Output = Ctxt;
+
+    fn sub(self, other: &Ctxt) -> Ctxt {
+        other
+            .ctxt_sub_from_packed_constant(self)
+            .expect("Sub from packed constant failed")
+    }
+}
+
+impl Mul<&EncodedPtxt> for &Ctxt {
+    type Output = Ctxt;
+
+    fn mul(self, other: &EncodedPtxt) -> Ctxt {
+        self.ctxt_mul_by_packed_constant(other)
+            .expect("Mul packed constant failed")
     }
 }
 
