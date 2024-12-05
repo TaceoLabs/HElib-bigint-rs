@@ -1,5 +1,6 @@
 pub(crate) mod encoding;
 pub(crate) mod helib;
+pub(crate) mod matrix;
 
 pub use encoding::batch_encoder::BatchEncoder;
 pub use helib::context::Context;

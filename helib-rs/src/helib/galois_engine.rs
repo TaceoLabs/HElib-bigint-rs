@@ -31,12 +31,12 @@ impl GaloisEngine {
         Error::error_from_return(ret)
     }
 
-    pub fn rotate_ctxt(&mut self, ctxt: &mut Ctxt, step: i32) -> Result<(), Error> {
+    pub fn rotate_ctxt(&self, ctxt: &mut Ctxt, step: i32) -> Result<(), Error> {
         let ret = unsafe { helib_bindings::GK_rotate(self.ptr, ctxt.ptr, step) };
         Error::error_from_return(ret)
     }
 
-    pub fn rotate_ctxt_columns(&mut self, ctxt: &mut Ctxt) -> Result<(), Error> {
+    pub fn rotate_ctxt_columns(&self, ctxt: &mut Ctxt) -> Result<(), Error> {
         self.rotate_ctxt(ctxt, 0)
     }
 }
