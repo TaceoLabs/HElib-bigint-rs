@@ -58,7 +58,7 @@ pub(crate) fn cyclic_naive_mult<F: PrimeField>(a: &[F], b: &[F]) -> Vec<F> {
 }
 
 #[cfg(test)]
-fn rotate_plain<F: PrimeField>(input: &[F], i: i32) -> Vec<F> {
+pub(crate) fn rotate_plain<F: PrimeField>(input: &[F], i: i32) -> Vec<F> {
     let n = input.len();
     assert!(n.is_power_of_two());
     let row_size = n / 2;
