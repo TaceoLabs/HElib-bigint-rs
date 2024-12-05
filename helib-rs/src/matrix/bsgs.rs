@@ -78,3 +78,62 @@ fn babystep_giantstep<F: PrimeField>(
     *ctxt = outer_sum;
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{helib::CLong, Context, PubKey, SecKey, ZZ};
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
+    const N: usize = 16384;
+    const M: usize = 2 * N;
+    const BITS: CLong = 700;
+
+    fn plain_mat_vec<F: PrimeField>(matrix: &[Vec<F>], vec: &[F]) -> Vec<F> {
+        assert_eq!(matrix.len(), vec.len());
+        matrix.iter().for_each(|i| assert_eq!(i.len(), vec.len()));
+        matrix
+            .iter()
+            .map(|row| row.iter().zip(vec).map(|(a, b)| *a * *b).sum())
+            .collect()
+    }
+
+    #[test]
+    fn bsgs_test() {
+        let dim = N >> 1;
+        let n2 = 1 << (dim.ilog2() >> 1);
+        let n1 = dim / n2;
+        let mut rng = thread_rng();
+
+        let vec = (0..dim)
+            .map(|_| ark_bn254::Fr::rand(&mut rng))
+            .collect::<Vec<_>>();
+        let mat = (0..dim)
+            .map(|_| {
+                (0..dim)
+                    .map(|_| ark_bn254::Fr::rand(&mut rng))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        let expected = plain_mat_vec(&mat, &vec);
+
+        // HE
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(M as CLong, &p, BITS).unwrap();
+        let mut galois = GaloisEngine::build(M as CLong).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let pubkey = PubKey::from_seckey(&seckey).unwrap();
+        let batch_encoder = BatchEncoder::new(N);
+
+        let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
+        let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
+
+        babystep_giantstep(&mut ctxt, &mat, &batch_encoder, &galois, n1, n2).unwrap();
+
+        let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
+        let decoded = decrypted.decode(&batch_encoder).unwrap();
+        assert_eq!(expected, &decoded[..dim]);
+    }
+}
