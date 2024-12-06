@@ -458,24 +458,17 @@ mod test {
         assert_eq!(expected, decoded);
     }
 
-    #[test]
-    #[ignore]
-    fn fully_packed_ntt_test_groth_root() {
-        let root = FFTMatrix::get_groth16_root(N);
-        let ntt_proc = NTTProcessor::new(N, root);
-
-        let dim = N;
-        let dim_half = dim >> 1;
-        let n2 = 1 << (dim_half.ilog2() >> 1);
-        let n1 = dim_half / n2;
+    fn packed_ntt_test<F: PrimeField>(root: F, divisor: usize) {
+        let dim = N >> divisor;
+        let n2 = 1 << (dim.ilog2() >> 1);
+        let n1 = dim / n2;
         let mut rng = thread_rng();
 
-        let mut vec = (0..dim)
-            .map(|_| ark_bn254::Fr::rand(&mut rng))
-            .collect::<Vec<_>>();
+        let ntt_proc = NTTProcessor::new(dim, root);
+        let mut vec = (0..dim).map(|_| F::rand(&mut rng)).collect::<Vec<_>>();
 
         // HE
-        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let p = ZZ::char::<F>().unwrap();
         let context = Context::build(M as CLong, &p, BITS).unwrap();
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
@@ -485,40 +478,32 @@ mod test {
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
         }
-        galois.generate_key_for_step(&seckey, 0).unwrap(); // Column swap
 
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
-        let mat = FFTMatrix::new(N, root);
-        Bsgs::fully_packed_bsgs(&mut ctxt, &mat, &batch_encoder, &galois).unwrap();
+        let mat = FFTMatrix::new(dim, root);
+        Bsgs::babystep_giantstep(&mut ctxt, &mat, &batch_encoder, &galois, n1, n2).unwrap();
 
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
         let decoded = decrypted.decode(&batch_encoder).unwrap();
 
         // plain
         ntt_proc.fft_inplace(&mut vec);
-        assert_eq!(vec, decoded);
+        assert_eq!(vec, &decoded[..dim]);
     }
 
-    #[test]
-    #[ignore]
-    fn fully_packed_intt_test_groth_root() {
-        let root = IFFTMatrix::get_groth16_root(N);
-        let ntt_proc = NTTProcessor::new(N, root);
-
-        let dim = N;
-        let dim_half = dim >> 1;
-        let n2 = 1 << (dim_half.ilog2() >> 1);
-        let n1 = dim_half / n2;
+    fn packed_intt_test<F: PrimeField>(root: F, divisor: usize) {
+        let dim = N >> divisor;
+        let n2 = 1 << (dim.ilog2() >> 1);
+        let n1 = dim / n2;
         let mut rng = thread_rng();
 
-        let mut vec = (0..dim)
-            .map(|_| ark_bn254::Fr::rand(&mut rng))
-            .collect::<Vec<_>>();
+        let ntt_proc = NTTProcessor::new(dim, root);
+        let mut vec = (0..dim).map(|_| F::rand(&mut rng)).collect::<Vec<_>>();
 
         // HE
-        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let p = ZZ::char::<F>().unwrap();
         let context = Context::build(M as CLong, &p, BITS).unwrap();
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
@@ -528,31 +513,29 @@ mod test {
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
         }
-        galois.generate_key_for_step(&seckey, 0).unwrap(); // Column swap
 
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
-        let mat = IFFTMatrix::new(N, root);
-        Bsgs::fully_packed_bsgs(&mut ctxt, &mat, &batch_encoder, &galois).unwrap();
+        let mat = IFFTMatrix::new(dim, root);
+        Bsgs::babystep_giantstep(&mut ctxt, &mat, &batch_encoder, &galois, n1, n2).unwrap();
 
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
         let decoded = decrypted.decode(&batch_encoder).unwrap();
 
         // plain
         ntt_proc.ifft_inplace(&mut vec);
-        assert_eq!(vec, decoded);
+        assert_eq!(vec, &decoded[..dim]);
     }
 
     fn fully_packed_ntt_test<F: PrimeField>(root: F) {
-        let ntt_proc = NTTProcessor::new(N, root);
-
         let dim = N;
         let dim_half = dim >> 1;
         let n2 = 1 << (dim_half.ilog2() >> 1);
         let n1 = dim_half / n2;
         let mut rng = thread_rng();
 
+        let ntt_proc = NTTProcessor::new(dim, root);
         let mut vec = (0..dim).map(|_| F::rand(&mut rng)).collect::<Vec<_>>();
 
         // HE
@@ -571,7 +554,7 @@ mod test {
         let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
         let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
 
-        let mat = FFTMatrix::new(N, root);
+        let mat = FFTMatrix::new(dim, root);
         Bsgs::fully_packed_bsgs(&mut ctxt, &mat, &batch_encoder, &galois).unwrap();
 
         let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
@@ -579,6 +562,43 @@ mod test {
 
         // plain
         ntt_proc.fft_inplace(&mut vec);
+        assert_eq!(vec, decoded);
+    }
+
+    fn fully_packed_intt_test<F: PrimeField>(root: F) {
+        let dim = N;
+        let dim_half = dim >> 1;
+        let n2 = 1 << (dim_half.ilog2() >> 1);
+        let n1 = dim_half / n2;
+        let mut rng = thread_rng();
+
+        let ntt_proc = NTTProcessor::new(dim, root);
+        let mut vec = (0..dim).map(|_| F::rand(&mut rng)).collect::<Vec<_>>();
+
+        // HE
+        let p = ZZ::char::<F>().unwrap();
+        let context = Context::build(M as CLong, &p, BITS).unwrap();
+        let mut galois = GaloisEngine::build(M as CLong).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let pubkey = PubKey::from_seckey(&seckey).unwrap();
+        let batch_encoder = BatchEncoder::new(N);
+
+        for index in Bsgs::bsgs_indices(n1, n2, N) {
+            galois.generate_key_for_step(&seckey, index).unwrap();
+        }
+        galois.generate_key_for_step(&seckey, 0).unwrap(); // Column swap
+
+        let encoded = EncodedPtxt::encode(&vec, &batch_encoder).unwrap();
+        let mut ctxt = pubkey.packed_encrypt(&encoded).unwrap();
+
+        let mat = IFFTMatrix::new(dim, root);
+        Bsgs::fully_packed_bsgs(&mut ctxt, &mat, &batch_encoder, &galois).unwrap();
+
+        let decrypted = seckey.packed_decrypt(&ctxt).unwrap();
+        let decoded = decrypted.decode(&batch_encoder).unwrap();
+
+        // plain
+        ntt_proc.ifft_inplace(&mut vec);
         assert_eq!(vec, decoded);
     }
 
@@ -593,6 +613,76 @@ mod test {
     #[ignore]
     fn fully_packed_intt_test_minimal_root() {
         let root = IFFTMatrix::get_minimal_root(N);
+        fully_packed_intt_test::<ark_bn254::Fr>(root);
+    }
+
+    #[test]
+    #[ignore]
+    fn fully_packed_ntt_test_groth_root() {
+        let root = FFTMatrix::get_groth16_root(N);
         fully_packed_ntt_test::<ark_bn254::Fr>(root);
+    }
+
+    #[test]
+    #[ignore]
+    fn fully_packed_intt_test_groth_root() {
+        let root = IFFTMatrix::get_groth16_root(N);
+        fully_packed_intt_test::<ark_bn254::Fr>(root);
+    }
+
+    #[test]
+    #[ignore]
+    fn half_packed_ntt_test_minimal_root() {
+        let root = FFTMatrix::get_minimal_root(N >> 1);
+        packed_ntt_test::<ark_bn254::Fr>(root, 1);
+    }
+
+    #[test]
+    #[ignore]
+    fn half_packed_intt_test_minimal_root() {
+        let root = IFFTMatrix::get_minimal_root(N >> 1);
+        packed_intt_test::<ark_bn254::Fr>(root, 1);
+    }
+
+    #[test]
+    #[ignore]
+    fn half_packed_ntt_test_groth_root() {
+        let root = FFTMatrix::get_groth16_root(N >> 1);
+        packed_ntt_test::<ark_bn254::Fr>(root, 1);
+    }
+
+    #[test]
+    #[ignore]
+    fn half_packed_intt_test_groth_root() {
+        let root = IFFTMatrix::get_groth16_root(N >> 1);
+        packed_intt_test::<ark_bn254::Fr>(root, 1);
+    }
+
+    #[test]
+    #[ignore]
+    fn quarter_packed_ntt_test_minimal_root() {
+        let root = FFTMatrix::get_minimal_root(N >> 2);
+        packed_ntt_test::<ark_bn254::Fr>(root, 2);
+    }
+
+    #[test]
+    #[ignore]
+    fn quarter_packed_intt_test_minimal_root() {
+        let root = IFFTMatrix::get_minimal_root(N >> 2);
+        packed_intt_test::<ark_bn254::Fr>(root, 2);
+    }
+
+    #[test]
+    #[ignore]
+    fn quarter_packed_ntt_test_groth_root() {
+        let root = FFTMatrix::get_groth16_root(N >> 2);
+        packed_ntt_test::<ark_bn254::Fr>(root, 2);
+    }
+
+    #[test]
+    #[ignore]
+    fn quarter_packed_intt_test_groth_root() {
+        let root = IFFTMatrix::get_groth16_root(N >> 2);
+        packed_intt_test::<ark_bn254::Fr>(root, 2);
     }
 }
