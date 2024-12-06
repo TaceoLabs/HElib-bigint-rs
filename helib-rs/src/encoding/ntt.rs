@@ -172,18 +172,22 @@ impl<F: PrimeField> NTTProcessor<F> {
         input.iter_mut().for_each(|el| *el *= self.n_inv);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn fft(&self, input: &[F]) -> Vec<F> {
         self.ark_ff_domain.fft(input)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn fft_inplace(&self, input: &mut Vec<F>) {
         self.ark_ff_domain.fft_in_place(input)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn ifft(&self, input: &[F]) -> Vec<F> {
         self.ark_ff_domain.ifft(input)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn ifft_inplace(&self, input: &mut Vec<F>) {
         self.ark_ff_domain.ifft_in_place(input)
     }

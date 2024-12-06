@@ -1,6 +1,10 @@
 pub(crate) mod bsgs;
 
-use crate::{encoding::ntt::NTTProcessor, helib::error::Error, Ctxt};
+use crate::{
+    encoding::{galois::Galois, ntt::NTTProcessor},
+    helib::error::Error,
+    Ctxt,
+};
 use ark_ff::PrimeField;
 use std::sync::Arc;
 
@@ -106,6 +110,17 @@ impl<F: PrimeField> FFTMatrix<F> {
             col_offset: 0,
         }
     }
+
+    pub fn get_groth16_root(n: usize) -> F {
+        assert!(n.is_power_of_two());
+        let (_, roots) = Galois::get_groth16_roots_of_unity();
+        roots[n.ilog2() as usize]
+    }
+
+    pub fn get_minimal_root(n: usize) -> F {
+        assert!(n.is_power_of_two());
+        Galois::get_minimal_primitive_n_root_of_unity(n).expect("Root found")
+    }
 }
 
 impl<F: PrimeField> SquareMatrix<F> for FFTMatrix<F> {
@@ -154,6 +169,14 @@ impl<F: PrimeField> IFFTMatrix<F> {
             row_offset: 0,
             col_offset: 0,
         }
+    }
+
+    pub fn get_groth16_root(n: usize) -> F {
+        FFTMatrix::get_groth16_root(n)
+    }
+
+    pub fn get_minimal_root(n: usize) -> F {
+        FFTMatrix::get_minimal_root(n)
     }
 }
 
