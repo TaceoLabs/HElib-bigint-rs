@@ -1,17 +1,75 @@
-use helib_rs::{BatchEncoder, CLong, Context, Error, GaloisEngine, PubKey, SecKey, ZZ};
+use ark_ff::PrimeField;
+use color_eyre::eyre::Error;
+use helib_rs::{BatchEncoder, CLong, Context, Ctxt, EncodedPtxt, GaloisEngine, PubKey, SecKey, ZZ};
+use rand::Rng;
 use std::process::ExitCode;
 
 const HE_N: CLong = 1024;
 const HE_M: CLong = 2 * HE_N;
 const HE_BITS: CLong = 700;
 
-fn main() -> Result<ExitCode, Error> {
-    let p = ZZ::char::<ark_bn254::Fr>().unwrap();
-    let context = Context::build(HE_M, &p, HE_BITS).unwrap();
-    let mut galois = GaloisEngine::build(HE_M as CLong).unwrap();
-    let seckey = SecKey::build(&context).unwrap();
-    let pubkey = PubKey::from_seckey(&seckey).unwrap();
-    // let batch_encoder = BatchEncoder::new(HE_M);
+struct HeContext<F: PrimeField> {
+    context: Context,
+    seckey: SecKey,
+    pubkey: PubKey,
+    encoder: BatchEncoder<F>,
+    galois: GaloisEngine,
+}
+
+impl<F: PrimeField> HeContext<F> {
+    fn new(m: CLong, bits: CLong) -> Self {
+        let p = ZZ::char::<ark_bn254::Fr>().unwrap();
+        let context = Context::build(m, &p, bits).unwrap();
+        let galois = GaloisEngine::build(m).unwrap();
+        let seckey = SecKey::build(&context).unwrap();
+        let pubkey = PubKey::from_seckey(&seckey).unwrap();
+        let encoder = BatchEncoder::new(m);
+
+        Self {
+            context,
+            seckey,
+            pubkey,
+            encoder,
+            galois,
+        }
+    }
+}
+
+fn random_vec<F: PrimeField, R: Rng>(size: usize, rng: &mut R) -> Vec<F> {
+    (0..size).map(|_| F::rand(rng)).collect()
+}
+
+fn encrypt<F: PrimeField>(inputs: &[F], context: &HeContext<F>) -> Result<Vec<Ctxt>, Error> {
+    let mut ctxts = Vec::with_capacity(inputs.len().div_ceil(HE_N as usize));
+    for inp in inputs.chunks(HE_N as usize) {
+        let encode = EncodedPtxt::encode(inp, &context.encoder)?;
+        let ctxt = context.pubkey.packed_encrypt(&encode)?;
+        ctxts.push(ctxt);
+    }
+    Ok(ctxts)
+}
+
+fn decrypt<F: PrimeField>(
+    size: usize,
+    ctxts: &[Ctxt],
+    context: &HeContext<F>,
+) -> Result<Vec<F>, Error> {
+    let mut outputs = Vec::with_capacity(ctxts.len() * HE_N as usize);
+    for ctxt in ctxts {
+        let ptxt = context.seckey.packed_decrypt(ctxt)?;
+        let output = ptxt.decode(&context.encoder)?;
+        outputs.extend(output);
+    }
+    outputs.resize(size, F::zero());
+    Ok(outputs)
+}
+
+fn fft_test<F: PrimeField>(size: usize, context: &mut HeContext<F>) -> Result<(), Error> {
+    todo!()
+}
+
+fn main() -> color_eyre::Result<ExitCode> {
+    let mut context = HeContext::<ark_bn254::Fr>::new(HE_M, HE_BITS);
 
     todo!();
 
