@@ -7,7 +7,7 @@ use helib_rs::{
 use rand::{thread_rng, Rng};
 use std::{process::ExitCode, time::Instant};
 
-const HE_N: CLong = 1024;
+const HE_N: CLong = 32768;
 const HE_M: CLong = 2 * HE_N;
 const HE_BITS: CLong = 850;
 
@@ -264,7 +264,7 @@ fn main() -> color_eyre::Result<ExitCode> {
     tracing::info!("HE Parameters:");
     tracing::info!("  N: {}", HE_N);
     tracing::info!("  Bits: {}", HE_BITS);
-    tracing::info!("  Security level: {}", security);
+    tracing::info!("  Security level: {:.2}", security);
 
     let ffts_bit = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
