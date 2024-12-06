@@ -98,7 +98,7 @@ pub struct FFTMatrix<F: PrimeField> {
 impl<F: PrimeField> FFTMatrix<F> {
     pub fn new(n: usize, root: F) -> Self {
         assert_eq!(root.pow([n as u64]), F::one());
-        let pow_table = NTTProcessor::create_pow_table(n, root);
+        let pow_table = NTTProcessor::create_pow_table(2 * n, root);
         Self {
             n,
             pow_table: Arc::new(pow_table),
@@ -141,7 +141,7 @@ impl<F: PrimeField> IFFTMatrix<F> {
     pub fn new(n: usize, root: F) -> Self {
         assert_eq!(root.pow([n as u64]), F::one());
         let inv_root = root.inverse().expect("mod inverse not found");
-        let mut pow_table = NTTProcessor::create_pow_table(n, inv_root);
+        let mut pow_table = NTTProcessor::create_pow_table(2 * n, inv_root);
         let n_inv = F::from(n as u64).inverse().expect("inverse not found");
 
         for p in pow_table.iter_mut() {
