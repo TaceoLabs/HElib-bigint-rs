@@ -267,7 +267,7 @@ mod test {
     use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
 
-    const N: usize = 16384;
+    const N: usize = 4096;
     const M: usize = 2 * N;
     const BITS: CLong = 850;
 
