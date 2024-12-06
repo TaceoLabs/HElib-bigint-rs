@@ -71,7 +71,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    fn create_pow_table(n: usize, root: F) -> Vec<F> {
+    pub(crate) fn create_pow_table(n: usize, root: F) -> Vec<F> {
         let mut table = Vec::with_capacity(n >> 1);
         let mut tmp = F::one();
         for _ in 0..n >> 1 {
