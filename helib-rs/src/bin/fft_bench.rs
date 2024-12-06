@@ -206,6 +206,7 @@ fn fft_selector<F: PrimeField>(
 }
 
 fn fft_test<F: PrimeField>(dim: usize, context: &mut HeContext<F>) -> Result<(), Error> {
+    tracing::info!("");
     tracing::info!("FFT test for size: {}", dim);
 
     let mut rng = thread_rng();
