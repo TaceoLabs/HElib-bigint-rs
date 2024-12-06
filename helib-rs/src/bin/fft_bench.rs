@@ -5,7 +5,7 @@ use helib_rs::{
     SecKey, ZZ,
 };
 use rand::{thread_rng, Rng};
-use std::process::ExitCode;
+use std::{process::ExitCode, time::Instant};
 
 const HE_N: CLong = 1024;
 const HE_M: CLong = 2 * HE_N;
@@ -43,12 +43,22 @@ fn random_vec<F: PrimeField, R: Rng>(size: usize, rng: &mut R) -> Vec<F> {
 }
 
 fn encrypt<F: PrimeField>(inputs: &[F], context: &HeContext<F>) -> Result<Vec<Ctxt>, Error> {
+    tracing::info!("Encrypting inputs of size: {}", inputs.len());
+    let start = Instant::now();
+
+    let mut min_noise_budget = CLong::MAX;
     let mut ctxts = Vec::with_capacity(inputs.len().div_ceil(HE_N as usize));
     for inp in inputs.chunks(HE_N as usize) {
         let encode = EncodedPtxt::encode(inp, &context.encoder)?;
         let ctxt = context.pubkey.packed_encrypt(&encode)?;
+        let noise = ctxt.noise_budget()?;
+        min_noise_budget = min_noise_budget.min(noise);
         ctxts.push(ctxt);
     }
+
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Encrypting took {} ms", duration_ms);
+    tracing::info!("Noise budget: {} bit", min_noise_budget);
     Ok(ctxts)
 }
 
@@ -57,13 +67,23 @@ fn decrypt<F: PrimeField>(
     ctxts: &[Ctxt],
     context: &HeContext<F>,
 ) -> Result<Vec<F>, Error> {
+    tracing::info!("Decrypting outputs of size: {}", size);
+    let start = Instant::now();
+
+    let mut min_noise_budget = CLong::MAX;
     let mut outputs = Vec::with_capacity(ctxts.len() * HE_N as usize);
     for ctxt in ctxts {
+        let noise = ctxt.noise_budget()?;
+        min_noise_budget = min_noise_budget.min(noise);
         let ptxt = context.seckey.packed_decrypt(ctxt)?;
         let output = ptxt.decode(&context.encoder)?;
         outputs.extend(output);
     }
     outputs.resize(size, F::zero());
+
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Decrypting took {} ms", duration_ms);
+    tracing::info!("Remaining noise budget was: {} bit", min_noise_budget);
     Ok(outputs)
 }
 
@@ -77,16 +97,24 @@ fn packed_fft<F: PrimeField>(
     let n1 = dim / n2;
 
     // Galois keys:
+    tracing::info!("Adding missing Galois keys");
+    let start = Instant::now();
     for index in Bsgs::bsgs_indices(n1, n2, context.encoder.slot_count()) {
         context
             .galois
             .generate_key_for_step(&context.seckey, index)?;
     }
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Adding missing Galois keys took {} ms", duration_ms);
 
     // Actual FFT:
+    tracing::info!("Doing FFT in HE");
     let mat = FFTMatrix::new(dim, root);
     let mut result = ctxt.ctxt_clone()?;
+    let start = Instant::now();
     Bsgs::babystep_giantstep(&mut result, &mat, &context.encoder, &context.galois, n1, n2)?;
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("FFT in HE took {} ms", duration_ms);
 
     Ok(result)
 }
@@ -102,17 +130,25 @@ fn fully_packed_fft<F: PrimeField>(
     let n1 = dim_half / n2;
 
     // Galois keys:
+    tracing::info!("Adding missing Galois keys");
+    let start = Instant::now();
     for index in Bsgs::bsgs_indices(n1, n2, dim) {
         context
             .galois
             .generate_key_for_step(&context.seckey, index)?;
     }
     context.galois.generate_key_for_step(&context.seckey, 0)?;
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Adding missing Galois keys took {} ms", duration_ms);
 
     // Actual FFT:
+    tracing::info!("Doing FFT in HE");
     let mat = FFTMatrix::new(dim, root);
     let mut result = ctxt.ctxt_clone()?;
+    let start = Instant::now();
     Bsgs::fully_packed_bsgs(&mut result, &mat, &context.encoder, &context.galois)?;
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("FFT in HE took {} ms", duration_ms);
 
     Ok(result)
 }
@@ -129,16 +165,26 @@ fn multiple_packed_fft<F: PrimeField>(
     let n1 = slots_half / n2;
 
     // Galois keys:
+    tracing::info!("Adding missing Galois keys");
+    let start = Instant::now();
     for index in Bsgs::bsgs_indices(n1, n2, slots) {
         context
             .galois
             .generate_key_for_step(&context.seckey, index)?;
     }
     context.galois.generate_key_for_step(&context.seckey, 0)?;
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Adding missing Galois keys took {} ms", duration_ms);
 
     // Actual FFT:
+    tracing::info!("Doing FFT in HE");
     let mat = FFTMatrix::new(dim, root);
-    Bsgs::bsgs_multiple_of_packsize(ctxts, &mat, &context.encoder, &context.galois)
+    let start = Instant::now();
+    let result = Bsgs::bsgs_multiple_of_packsize(ctxts, &mat, &context.encoder, &context.galois)?;
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("FFT in HE took {} ms", duration_ms);
+
+    Ok(result)
 }
 
 fn fft_selector<F: PrimeField>(
@@ -160,17 +206,26 @@ fn fft_selector<F: PrimeField>(
 }
 
 fn fft_test<F: PrimeField>(dim: usize, context: &mut HeContext<F>) -> Result<(), Error> {
+    tracing::info!("FFT test for size: {}", dim);
+
     let mut rng = thread_rng();
     if !dim.is_power_of_two() {
         return Err(Error::Other("FFT: Size must be a power of two".to_string()));
     }
+    tracing::info!("Generating random input");
+    let start = Instant::now();
+    let input = random_vec(dim, &mut rng);
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("Generating random input took {} ms", duration_ms);
 
     // let root = FFTMatrix::get_groth16_root(dim);
+    tracing::info!("Doing FFT in plain");
     let root = FFTMatrix::get_minimal_root(dim);
     let ntt_proc = NTTProcessor::new(dim, root);
-
-    let input = random_vec(dim, &mut rng);
+    let start = Instant::now();
     let expected_output = ntt_proc.fft(&input);
+    let duration_ms = start.elapsed().as_micros() as f64 / 1000.;
+    tracing::info!("FFT in plain took {} ms", duration_ms);
 
     let ctxts = encrypt(&input, context)?;
     let ctxts_fft = fft_selector(dim, root, &ctxts, context)?;
