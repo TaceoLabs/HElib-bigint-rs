@@ -106,7 +106,7 @@ impl Bsgs {
         assert!(dim <= matrix.dimension());
         let slots = batch_encoder.slot_count();
         let halfslots = slots >> 1;
-        assert!(dim << 1 == slots || dim << 2 < slots);
+        assert!(dim << 1 == slots || dim << 2 <= slots);
         assert_eq!(dim, n1 * n2);
 
         let mut encoded = Vec::with_capacity(dim);
@@ -150,7 +150,7 @@ impl Bsgs {
         assert!(dim <= matrix2.dimension());
         let slots = batch_encoder.slot_count();
         let halfslots = slots >> 1;
-        assert!(dim << 1 == slots || dim << 2 < slots);
+        assert!(dim << 1 == slots || dim << 2 <= slots);
 
         let mut encoded = Vec::with_capacity(dim);
 
