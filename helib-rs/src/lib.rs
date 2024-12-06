@@ -1,6 +1,6 @@
 pub(crate) mod encoding;
 pub(crate) mod helib;
-pub(crate) mod matrix;
+pub mod matrix;
 
 pub use encoding::batch_encoder::BatchEncoder;
 pub use helib::context::Context;
@@ -10,5 +10,3 @@ pub use helib::galois_engine::GaloisEngine;
 pub use helib::pubkey::PubKey;
 pub use helib::seckey::SecKey;
 pub use helib::zz::ZZ;
-pub use matrix::bsgs::Bsgs;
-pub use matrix::SplittableMatrix;

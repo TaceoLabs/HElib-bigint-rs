@@ -1,7 +1,10 @@
 pub(crate) mod bsgs;
 
+use crate::{helib::error::Error, Ctxt};
 use ark_ff::PrimeField;
 use std::sync::Arc;
+
+pub use bsgs::Bsgs;
 
 pub trait SquareMatrix<F: PrimeField>: Clone {
     fn dimension(&self) -> usize;
@@ -62,4 +65,24 @@ impl<F: PrimeField> SquareMatrix<F> for SplittableMatrix<F> {
     fn set_col_offset(&mut self, offset: usize) {
         self.col_offset = offset;
     }
+}
+
+pub fn plain_matrix_ctxt_vector<F: PrimeField, T: SquareMatrix<F>>(
+    mat: &T,
+    vec: &[Ctxt],
+) -> Result<Vec<Ctxt>, Error> {
+    let dim = mat.dimension();
+    assert_eq!(dim, vec.len());
+    let mut result = Vec::with_capacity(dim);
+
+    for row in 0..dim {
+        let mut res = vec[0].ctxt_mul_by_field_element(mat.get(row, 0))?;
+        for (col, c) in vec.iter().enumerate().skip(1) {
+            let tmp = c.ctxt_mul_by_field_element(mat.get(row, col))?;
+            res.ctxt_add_inplace(&tmp)?;
+        }
+        result.push(res);
+    }
+
+    Ok(result)
 }
