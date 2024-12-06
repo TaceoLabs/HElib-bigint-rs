@@ -35,6 +35,8 @@ pub trait SquareMatrix<F: PrimeField>: Clone {
     fn get(&self, row: usize, col: usize) -> F;
     fn set_row_offset(&mut self, offset: usize);
     fn set_col_offset(&mut self, offset: usize);
+    fn get_row_offset(&self) -> usize;
+    fn get_col_offset(&self) -> usize;
 }
 
 impl<F: PrimeField> SquareMatrix<F> for Vec<Vec<F>> {
@@ -52,6 +54,14 @@ impl<F: PrimeField> SquareMatrix<F> for Vec<Vec<F>> {
 
     fn set_col_offset(&mut self, _offset: usize) {
         panic!("Not implemented");
+    }
+
+    fn get_row_offset(&self) -> usize {
+        0
+    }
+
+    fn get_col_offset(&self) -> usize {
+        0
     }
 }
 
@@ -89,6 +99,14 @@ impl<F: PrimeField> SquareMatrix<F> for SplittableMatrix<F> {
     fn set_col_offset(&mut self, offset: usize) {
         self.col_offset = offset;
     }
+
+    fn get_row_offset(&self) -> usize {
+        self.row_offset
+    }
+
+    fn get_col_offset(&self) -> usize {
+        self.col_offset
+    }
 }
 
 #[derive(Clone)]
@@ -121,6 +139,14 @@ impl<F: PrimeField> FFTMatrix<F> {
         assert!(n.is_power_of_two());
         Galois::get_minimal_primitive_n_root_of_unity(n).expect("Root found")
     }
+
+    fn get_row_offset(&self) -> usize {
+        self.row_offset
+    }
+
+    fn get_col_offset(&self) -> usize {
+        self.col_offset
+    }
 }
 
 impl<F: PrimeField> SquareMatrix<F> for FFTMatrix<F> {
@@ -141,6 +167,14 @@ impl<F: PrimeField> SquareMatrix<F> for FFTMatrix<F> {
 
     fn set_col_offset(&mut self, offset: usize) {
         self.col_offset = offset;
+    }
+
+    fn get_row_offset(&self) -> usize {
+        self.row_offset
+    }
+
+    fn get_col_offset(&self) -> usize {
+        self.col_offset
     }
 }
 
@@ -198,5 +232,13 @@ impl<F: PrimeField> SquareMatrix<F> for IFFTMatrix<F> {
 
     fn set_col_offset(&mut self, offset: usize) {
         self.col_offset = offset;
+    }
+
+    fn get_row_offset(&self) -> usize {
+        self.row_offset
+    }
+
+    fn get_col_offset(&self) -> usize {
+        self.col_offset
     }
 }

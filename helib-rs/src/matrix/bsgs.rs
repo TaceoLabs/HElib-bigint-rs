@@ -195,12 +195,13 @@ impl Bsgs {
         batch_encoder: &BatchEncoder<F>,
         galois_engine: &GaloisEngine,
     ) -> Result<(), Error> {
-        let dim = matrix.dimension();
-        let slots = batch_encoder.slot_count();
-        assert_eq!(dim, slots);
+        let dim = batch_encoder.slot_count();
         let dim_half = dim >> 1;
         let n2 = 1 << (dim_half.ilog2() >> 1);
         let n1 = dim_half / n2;
+
+        let current_col_offset = matrix.get_col_offset();
+        let current_row_offset = matrix.get_row_offset();
 
         // Strategy: Split M = [M1, M2] [M3, M4] and v = [v1, v2], then result r = [r1, r2]  is computed as (M1*v1 + M2*v2, M3*v1 + M4*v2)
         let mut ctxt2 = ctxt.ctxt_clone()?;
@@ -208,8 +209,8 @@ impl Bsgs {
         // First half: M1*v1 + M4*v2
         let mat1 = matrix.clone();
         let mut mat4 = matrix.clone();
-        mat4.set_col_offset(dim_half);
-        mat4.set_row_offset(dim_half);
+        mat4.set_col_offset(current_col_offset + dim_half);
+        mat4.set_row_offset(current_row_offset + dim_half);
         Self::babystep_giantstep_two_matrices(
             ctxt,
             &mat1,
@@ -224,8 +225,8 @@ impl Bsgs {
         let mut mat3 = mat1;
         mat3.set_row_offset(dim_half);
         let mut mat2 = mat4;
-        mat2.set_row_offset(0);
-        mat2.set_col_offset(dim_half);
+        mat2.set_row_offset(current_row_offset);
+        mat2.set_col_offset(current_col_offset + dim_half);
         Self::babystep_giantstep_two_matrices(
             &mut ctxt2,
             &mat3,
