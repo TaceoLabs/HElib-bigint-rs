@@ -12,8 +12,7 @@ pub struct NTTProcessor<F: PrimeField> {
 }
 
 impl<F: PrimeField> NTTProcessor<F> {
-    #[allow(dead_code)]
-    pub(crate) fn new(n: usize, root: F) -> Self {
+    pub fn new(n: usize, root: F) -> Self {
         assert!(n.is_power_of_two());
         let root_inverse = root.inverse().expect("mod inverse not found");
         let n_inv = F::from(n as u64).inverse().expect("inverse not found");
@@ -34,7 +33,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    pub(crate) fn new_negacylic(n: usize, root: F) -> Self {
+    pub fn new_negacylic(n: usize, root: F) -> Self {
         assert!(n.is_power_of_two());
         let root_squared = root.square();
         let root_inverse = root.inverse().expect("mod inverse not found");
@@ -57,8 +56,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn negacylcic_preprocess_two(&self, a: &mut [F], b: &mut [F]) {
+    pub fn negacylcic_preprocess_two(&self, a: &mut [F], b: &mut [F]) {
         debug_assert_eq!(a.len(), self.n);
         debug_assert_eq!(b.len(), self.n);
         let mut tmp = F::one();
@@ -69,7 +67,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    pub(crate) fn negacylcic_preprocess(&self, a: &mut [F]) {
+    pub fn negacylcic_preprocess(&self, a: &mut [F]) {
         debug_assert_eq!(a.len(), self.n);
         let mut tmp = F::one();
         for a in a.iter_mut() {
@@ -78,7 +76,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    pub(crate) fn negacylcic_postprocess(&self, a: &mut [F]) {
+    pub fn negacylcic_postprocess(&self, a: &mut [F]) {
         debug_assert_eq!(a.len(), self.n);
         let mut tmp = F::one();
         for a in a.iter_mut() {
@@ -97,14 +95,13 @@ impl<F: PrimeField> NTTProcessor<F> {
         table
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn ntt(&self, input: &[F]) -> Vec<F> {
+    pub fn ntt(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
         self.ntt_inplace(&mut output);
         output
     }
 
-    pub(crate) fn ntt_inplace(&self, input: &mut [F]) {
+    pub fn ntt_inplace(&self, input: &mut [F]) {
         assert_eq!(input.len(), self.n);
         let levels = self.n.ilog2();
         for i in 0..self.n {
@@ -135,14 +132,13 @@ impl<F: PrimeField> NTTProcessor<F> {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn intt(&self, input: &[F]) -> Vec<F> {
+    pub fn intt(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
         self.intt_inplace(&mut output);
         output
     }
 
-    pub(crate) fn intt_inplace(&self, input: &mut [F]) {
+    pub fn intt_inplace(&self, input: &mut [F]) {
         assert_eq!(input.len(), self.n);
         let levels = self.n.ilog2();
 
@@ -176,23 +172,19 @@ impl<F: PrimeField> NTTProcessor<F> {
         input.iter_mut().for_each(|el| *el *= self.n_inv);
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn fft(&self, input: &[F]) -> Vec<F> {
+    pub fn fft(&self, input: &[F]) -> Vec<F> {
         self.ark_ff_domain.fft(input)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn fft_inplace(&self, input: &mut Vec<F>) {
+    pub fn fft_inplace(&self, input: &mut Vec<F>) {
         self.ark_ff_domain.fft_in_place(input)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn ifft(&self, input: &[F]) -> Vec<F> {
+    pub fn ifft(&self, input: &[F]) -> Vec<F> {
         self.ark_ff_domain.ifft(input)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn ifft_inplace(&self, input: &mut Vec<F>) {
+    pub fn ifft_inplace(&self, input: &mut Vec<F>) {
         self.ark_ff_domain.ifft_in_place(input)
     }
 }

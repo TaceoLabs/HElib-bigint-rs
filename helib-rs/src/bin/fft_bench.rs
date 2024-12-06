@@ -1,7 +1,10 @@
 use ark_ff::PrimeField;
 use color_eyre::eyre::Error;
-use helib_rs::{BatchEncoder, CLong, Context, Ctxt, EncodedPtxt, GaloisEngine, PubKey, SecKey, ZZ};
-use rand::Rng;
+use helib_rs::{
+    matrix::FFTMatrix, BatchEncoder, CLong, Context, Ctxt, EncodedPtxt, GaloisEngine, NTTProcessor,
+    PubKey, SecKey, ZZ,
+};
+use rand::{thread_rng, Rng};
 use std::process::ExitCode;
 
 const HE_N: CLong = 1024;
@@ -65,6 +68,17 @@ fn decrypt<F: PrimeField>(
 }
 
 fn fft_test<F: PrimeField>(size: usize, context: &mut HeContext<F>) -> Result<(), Error> {
+    let mut rng = thread_rng();
+    if !size.is_power_of_two() {
+        return Err(Error::msg("FFT: Size must be a power of two"));
+    }
+
+    // let root = FFTMatrix::get_groth16_root(size);
+    let root = FFTMatrix::get_minimal_root(size);
+    let ntt_proc = NTTProcessor::new(size, root);
+
+    let input = random_vec(size, &mut rng);
+    let expected_output = ntt_proc.fft(&input);
     todo!()
 }
 
