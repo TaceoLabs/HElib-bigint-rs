@@ -243,11 +243,33 @@ impl Bsgs {
     }
 
     pub fn bsgs_multiple_of_packsize<F: PrimeField, T: SquareMatrix<F>>(
-        ctxt: &mut Ctxt,
+        ctxts: &[Ctxt],
         matrix: &T,
         batch_encoder: &BatchEncoder<F>,
         galois_engine: &GaloisEngine,
-    ) {
+    ) -> Result<Vec<Ctxt>, Error> {
+        let num_ciphertexts = ctxts.len();
+        let dim = batch_encoder.slot_count();
+        let mut matrix = matrix.to_owned();
+
+        let mut result = Vec::with_capacity(num_ciphertexts);
+
+        for row in 0..num_ciphertexts {
+            matrix.set_row_offset(row * dim);
+            matrix.set_col_offset(0);
+            let mut sum_ctxt = ctxts[0].ctxt_clone()?;
+            Self::fully_packed_bsgs(&mut sum_ctxt, &matrix, batch_encoder, galois_engine)?;
+
+            for (col, ctxt) in ctxts.iter().enumerate().skip(1) {
+                matrix.set_col_offset(col * dim);
+                let mut in_out_ctxt = ctxt.ctxt_clone()?;
+                Self::fully_packed_bsgs(&mut in_out_ctxt, &matrix, batch_encoder, galois_engine)?;
+                sum_ctxt.ctxt_add_inplace(&in_out_ctxt)?;
+            }
+            result.push(sum_ctxt);
+        }
+
+        Ok(result)
     }
 
     pub fn bsgs_indices(n1: usize, n2: usize, slots: usize) -> Vec<i32> {
