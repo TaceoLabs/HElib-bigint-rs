@@ -4,8 +4,8 @@ use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 pub struct NTTProcessor<F: PrimeField> {
     n: usize,
     n_inv: F,
-    // root: F,
-    // root_inverse: F,
+    root: F,
+    root_inverse: F,
     pow_table: Vec<F>,
     inv_pow_table: Vec<F>,
     ark_ff_domain: Radix2EvaluationDomain<F>,
@@ -25,9 +25,11 @@ impl<F: PrimeField> NTTProcessor<F> {
 
         NTTProcessor {
             n,
+            n_inv,
+            root,
+            root_inverse,
             pow_table: NTTProcessor::create_pow_table(n, root),
             inv_pow_table: NTTProcessor::create_pow_table(n, root_inverse),
-            n_inv,
             ark_ff_domain,
         }
     }
@@ -41,14 +43,16 @@ impl<F: PrimeField> NTTProcessor<F> {
 
         let mut ark_ff_domain =
             Radix2EvaluationDomain::<F>::new(n).expect("Can create ark_ff_domain");
-        ark_ff_domain.group_gen = root;
-        ark_ff_domain.group_gen_inv = root_inverse;
+        ark_ff_domain.group_gen = root_squared;
+        ark_ff_domain.group_gen_inv = root_squared_inverse;
 
         NTTProcessor {
             n,
+            n_inv,
+            root,
+            root_inverse,
             pow_table: NTTProcessor::create_pow_table(n, root_squared),
             inv_pow_table: NTTProcessor::create_pow_table(n, root_squared_inverse),
-            n_inv,
             ark_ff_domain,
         }
     }
@@ -61,7 +65,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         for (a, b) in a.iter_mut().zip(b.iter_mut()) {
             *a *= tmp;
             *b *= tmp;
-            tmp *= self.ark_ff_domain.group_gen;
+            tmp *= self.root;
         }
     }
 
@@ -70,7 +74,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let mut tmp = F::one();
         for a in a.iter_mut() {
             *a *= tmp;
-            tmp *= self.ark_ff_domain.group_gen;
+            tmp *= self.root;
         }
     }
 
@@ -79,7 +83,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let mut tmp = F::one();
         for a in a.iter_mut() {
             *a *= tmp;
-            tmp *= self.ark_ff_domain.group_gen_inv;
+            tmp *= self.root_inverse;
         }
     }
 
