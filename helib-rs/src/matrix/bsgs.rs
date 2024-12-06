@@ -685,4 +685,32 @@ mod test {
         let root = IFFTMatrix::get_groth16_root(N >> 2);
         packed_intt_test::<ark_bn254::Fr>(root, 2);
     }
+
+    #[test]
+    #[ignore]
+    fn eigth_packed_ntt_test_minimal_root() {
+        let root = FFTMatrix::get_minimal_root(N >> 3);
+        packed_ntt_test::<ark_bn254::Fr>(root, 3);
+    }
+
+    #[test]
+    #[ignore]
+    fn eigth_packed_intt_test_minimal_root() {
+        let root = IFFTMatrix::get_minimal_root(N >> 3);
+        packed_intt_test::<ark_bn254::Fr>(root, 3);
+    }
+
+    #[test]
+    #[ignore]
+    fn eigth_packed_ntt_test_groth_root() {
+        let root = FFTMatrix::get_groth16_root(N >> 3);
+        packed_ntt_test::<ark_bn254::Fr>(root, 3);
+    }
+
+    #[test]
+    #[ignore]
+    fn eigth_packed_intt_test_groth_root() {
+        let root = IFFTMatrix::get_groth16_root(N >> 3);
+        packed_intt_test::<ark_bn254::Fr>(root, 3);
+    }
 }
