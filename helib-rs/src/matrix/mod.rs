@@ -139,14 +139,6 @@ impl<F: PrimeField> FFTMatrix<F> {
         assert!(n.is_power_of_two());
         Galois::get_minimal_primitive_n_root_of_unity(n).expect("Root found")
     }
-
-    fn get_row_offset(&self) -> usize {
-        self.row_offset
-    }
-
-    fn get_col_offset(&self) -> usize {
-        self.col_offset
-    }
 }
 
 impl<F: PrimeField> SquareMatrix<F> for FFTMatrix<F> {
