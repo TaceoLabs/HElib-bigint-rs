@@ -11,6 +11,7 @@ rust-version.workspace = true
 
 [dependencies]
 ark-ff = "0.5"
+ark-poly = "0.5"
 num-bigint = "0.4"
 helib-bindings = { path = "../helib-bindings" }
 rand = "0.8"

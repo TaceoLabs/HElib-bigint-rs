@@ -164,8 +164,11 @@ impl<F: PrimeField> NTTProcessor<F> {
 #[cfg(test)]
 mod ntt_test {
     use super::*;
-    use crate::encoding::{cyclic_naive_mult, galois::Galois, negacyclic_naive_mult};
+    use crate::encoding::{
+        ark_ntt::fft_domain, cyclic_naive_mult, galois::Galois, negacyclic_naive_mult,
+    };
     use ark_ff::{UniformRand, Zero};
+    use ark_poly::EvaluationDomain;
     use rand::thread_rng;
 
     const NUM_TRIALS: usize = 10;
@@ -253,6 +256,36 @@ mod ntt_test {
 
             let result = ntt_proc.inverse_transform(&result_ntt);
             assert_eq!(result, naive);
+        }
+    }
+
+    #[test]
+    fn cyclic_ntt_vs_ark_fft() {
+        let fft_domain = fft_domain::<ark_bn254::Fr>(N);
+        let ntt_proc = NTTProcessor::new(N, fft_domain.group_gen);
+
+        let mut rng = thread_rng();
+        for _ in 0..NUM_TRIALS {
+            let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+
+            let a_ntt = ntt_proc.transform(&a);
+            let a_fft = fft_domain.fft(&a);
+            assert_eq!(a_ntt, a_fft);
+        }
+    }
+
+    #[test]
+    fn cyclic_intt_vs_ark_ifft() {
+        let fft_domain = fft_domain::<ark_bn254::Fr>(N);
+        let ntt_proc = NTTProcessor::new(N, fft_domain.group_gen);
+
+        let mut rng = thread_rng();
+        for _ in 0..NUM_TRIALS {
+            let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+
+            let a_ntt = ntt_proc.inverse_transform(&a);
+            let a_fft = fft_domain.ifft(&a);
+            assert_eq!(a_ntt, a_fft);
         }
     }
 }
