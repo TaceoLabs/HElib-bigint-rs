@@ -223,7 +223,7 @@ impl Bsgs {
 
         // Second half: M3*v1 + M2*v2
         let mut mat3 = mat1;
-        mat3.set_row_offset(dim_half);
+        mat3.set_row_offset(current_row_offset + dim_half);
         let mut mat2 = mat4;
         mat2.set_row_offset(current_row_offset);
         mat2.set_col_offset(current_col_offset + dim_half);
