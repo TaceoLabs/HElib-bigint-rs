@@ -9,7 +9,7 @@ use std::{process::ExitCode, time::Instant};
 
 const HE_N: CLong = 1024;
 const HE_M: CLong = 2 * HE_N;
-const HE_BITS: CLong = 700;
+const HE_BITS: CLong = 850;
 
 struct HeContext<F: PrimeField> {
     context: Context,
@@ -266,7 +266,11 @@ fn main() -> color_eyre::Result<ExitCode> {
     tracing::info!("  Bits: {}", HE_BITS);
     tracing::info!("  Security level: {}", security);
 
-    fft_test(1024, &mut context)?;
+    let ffts_bit = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+
+    for bit in ffts_bit {
+        fft_test(1 << bit, &mut context)?;
+    }
 
     Ok(ExitCode::SUCCESS)
 }
