@@ -1,4 +1,3 @@
-pub(crate) mod ark_ntt;
 pub(crate) mod batch_encoder;
 pub(crate) mod galois;
 pub(crate) mod ntt;

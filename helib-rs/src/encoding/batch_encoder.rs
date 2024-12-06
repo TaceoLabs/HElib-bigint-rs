@@ -58,7 +58,7 @@ impl<F: PrimeField> BatchEncoder<F> {
             encoded[self.index_map[i]] = *val;
         }
 
-        self.ntt_proc.inverse_transform_inplace(&mut encoded);
+        self.ntt_proc.intt_inplace(&mut encoded);
         self.ntt_proc.negacylcic_postprocess(&mut encoded);
         encoded
     }
@@ -66,7 +66,7 @@ impl<F: PrimeField> BatchEncoder<F> {
     pub fn decode(&self, input: &[F]) -> Vec<F> {
         let mut transformed = input.to_vec();
         self.ntt_proc.negacylcic_preprocess(&mut transformed);
-        self.ntt_proc.transform_inplace(&mut transformed);
+        self.ntt_proc.ntt_inplace(&mut transformed);
 
         (0..self.n)
             .map(|i| transformed[self.index_map[i]])

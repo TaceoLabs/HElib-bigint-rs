@@ -488,7 +488,7 @@ mod test {
         let decoded = decrypted.decode(&batch_encoder).unwrap();
 
         // plain
-        ntt_proc.transform_inplace(&mut vec);
+        ntt_proc.ntt_inplace(&mut vec);
         assert_eq!(vec, decoded);
     }
 
@@ -531,7 +531,7 @@ mod test {
         let decoded = decrypted.decode(&batch_encoder).unwrap();
 
         // plain
-        ntt_proc.inverse_transform_inplace(&mut vec);
+        ntt_proc.intt_inplace(&mut vec);
         assert_eq!(vec, decoded);
     }
 }

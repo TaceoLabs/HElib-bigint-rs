@@ -1,3 +1,5 @@
+#[cfg(test)]
+use ark_ff::LegendreSymbol;
 use ark_ff::{One, PrimeField};
 use num_bigint::BigUint;
 use rand::thread_rng;
@@ -60,7 +62,7 @@ impl Galois {
     }
 
     /// plaintext prime p, for x^n/2 + 1
-    pub(crate) fn get_minimal_primitive_n_root_of_unity<F: PrimeField>(n: usize) -> Option<F> {
+    pub fn get_minimal_primitive_n_root_of_unity<F: PrimeField>(n: usize) -> Option<F> {
         let mut root = match Self::get_primitive_n_root_of_unity::<F>(n) {
             Some(i) => i,
             None => return None,
@@ -77,6 +79,22 @@ impl Galois {
         }
 
         Some(root)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_groth16_roots_of_unity<F: PrimeField>() -> (F, Vec<F>) {
+        let mut roots = vec![F::zero(); F::TWO_ADICITY as usize + 1];
+        let mut q = F::one();
+        while q.legendre() != LegendreSymbol::QuadraticNonResidue {
+            q += F::one();
+        }
+        let z = q.pow(F::TRACE);
+        roots[0] = z;
+        for i in 1..roots.len() {
+            roots[i] = roots[i - 1].square();
+        }
+        roots.reverse();
+        (q, roots)
     }
 
     pub(crate) fn automorphism<F: PrimeField>(a: &[F], galois_elt: usize) -> Vec<F> {

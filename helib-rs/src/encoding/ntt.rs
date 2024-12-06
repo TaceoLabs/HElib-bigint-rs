@@ -1,12 +1,14 @@
 use ark_ff::PrimeField;
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 pub struct NTTProcessor<F: PrimeField> {
     n: usize,
     n_inv: F,
-    root: F,
-    root_inverse: F,
+    // root: F,
+    // root_inverse: F,
     pow_table: Vec<F>,
     inv_pow_table: Vec<F>,
+    ark_ff_domain: Radix2EvaluationDomain<F>,
 }
 
 impl<F: PrimeField> NTTProcessor<F> {
@@ -15,13 +17,18 @@ impl<F: PrimeField> NTTProcessor<F> {
         assert!(n.is_power_of_two());
         let root_inverse = root.inverse().expect("mod inverse not found");
         let n_inv = F::from(n as u64).inverse().expect("inverse not found");
+
+        let mut ark_ff_domain =
+            Radix2EvaluationDomain::<F>::new(n).expect("Can create ark_ff_domain");
+        ark_ff_domain.group_gen = root;
+        ark_ff_domain.group_gen_inv = root_inverse;
+
         NTTProcessor {
             n,
-            root,
-            root_inverse,
             pow_table: NTTProcessor::create_pow_table(n, root),
             inv_pow_table: NTTProcessor::create_pow_table(n, root_inverse),
             n_inv,
+            ark_ff_domain,
         }
     }
 
@@ -31,13 +38,18 @@ impl<F: PrimeField> NTTProcessor<F> {
         let root_inverse = root.inverse().expect("mod inverse not found");
         let n_inv = F::from(n as u64).inverse().expect("inverse not found");
         let root_squared_inverse = root_squared.inverse().expect("mod inverse not found");
+
+        let mut ark_ff_domain =
+            Radix2EvaluationDomain::<F>::new(n).expect("Can create ark_ff_domain");
+        ark_ff_domain.group_gen = root;
+        ark_ff_domain.group_gen_inv = root_inverse;
+
         NTTProcessor {
             n,
-            root,
-            root_inverse,
             pow_table: NTTProcessor::create_pow_table(n, root_squared),
             inv_pow_table: NTTProcessor::create_pow_table(n, root_squared_inverse),
             n_inv,
+            ark_ff_domain,
         }
     }
 
@@ -49,7 +61,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         for (a, b) in a.iter_mut().zip(b.iter_mut()) {
             *a *= tmp;
             *b *= tmp;
-            tmp *= self.root;
+            tmp *= self.ark_ff_domain.group_gen;
         }
     }
 
@@ -58,7 +70,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let mut tmp = F::one();
         for a in a.iter_mut() {
             *a *= tmp;
-            tmp *= self.root;
+            tmp *= self.ark_ff_domain.group_gen;
         }
     }
 
@@ -67,7 +79,7 @@ impl<F: PrimeField> NTTProcessor<F> {
         let mut tmp = F::one();
         for a in a.iter_mut() {
             *a *= tmp;
-            tmp *= self.root_inverse;
+            tmp *= self.ark_ff_domain.group_gen_inv;
         }
     }
 
@@ -82,13 +94,13 @@ impl<F: PrimeField> NTTProcessor<F> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn transform(&self, input: &[F]) -> Vec<F> {
+    pub(crate) fn ntt(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
-        self.transform_inplace(&mut output);
+        self.ntt_inplace(&mut output);
         output
     }
 
-    pub(crate) fn transform_inplace(&self, input: &mut [F]) {
+    pub(crate) fn ntt_inplace(&self, input: &mut [F]) {
         assert_eq!(input.len(), self.n);
         let levels = self.n.ilog2();
         for i in 0..self.n {
@@ -120,13 +132,13 @@ impl<F: PrimeField> NTTProcessor<F> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn inverse_transform(&self, input: &[F]) -> Vec<F> {
+    pub(crate) fn intt(&self, input: &[F]) -> Vec<F> {
         let mut output = input.to_vec();
-        self.inverse_transform_inplace(&mut output);
+        self.intt_inplace(&mut output);
         output
     }
 
-    pub(crate) fn inverse_transform_inplace(&self, input: &mut [F]) {
+    pub(crate) fn intt_inplace(&self, input: &mut [F]) {
         assert_eq!(input.len(), self.n);
         let levels = self.n.ilog2();
 
@@ -159,20 +171,33 @@ impl<F: PrimeField> NTTProcessor<F> {
 
         input.iter_mut().for_each(|el| *el *= self.n_inv);
     }
+
+    pub(crate) fn fft(&self, input: &[F]) -> Vec<F> {
+        self.ark_ff_domain.fft(input)
+    }
+
+    pub(crate) fn fft_inplace(&self, input: &mut Vec<F>) {
+        self.ark_ff_domain.fft_in_place(input)
+    }
+
+    pub(crate) fn ifft(&self, input: &[F]) -> Vec<F> {
+        self.ark_ff_domain.ifft(input)
+    }
+
+    pub(crate) fn ifft_inplace(&self, input: &mut Vec<F>) {
+        self.ark_ff_domain.ifft_in_place(input)
+    }
 }
 
 #[cfg(test)]
 mod ntt_test {
     use super::*;
-    use crate::encoding::{
-        ark_ntt::fft_domain, cyclic_naive_mult, galois::Galois, negacyclic_naive_mult,
-    };
+    use crate::encoding::{cyclic_naive_mult, galois::Galois, negacyclic_naive_mult};
     use ark_ff::{UniformRand, Zero};
-    use ark_poly::EvaluationDomain;
     use rand::thread_rng;
 
-    const NUM_TRIALS: usize = 10;
-    const N: usize = 1024;
+    const NUM_TRIALS: usize = 5;
+    const N: usize = 4096;
 
     #[test]
     fn ntt_is_bijective() {
@@ -182,8 +207,8 @@ mod ntt_test {
         let mut rng = thread_rng();
         for _ in 0..NUM_TRIALS {
             let poly: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
-            let b = ntt_proc.transform(&poly);
-            let c = ntt_proc.inverse_transform(&b);
+            let b = ntt_proc.ntt(&poly);
+            let c = ntt_proc.intt(&b);
 
             assert_eq!(poly, c);
         }
@@ -200,7 +225,7 @@ mod ntt_test {
             poly[0] = mu * ark_bn254::Fr::from(N as u64);
             let b = vec![mu; N];
 
-            let c = ntt_proc.transform(&b);
+            let c = ntt_proc.ntt(&b);
 
             assert_eq!(poly, c);
         }
@@ -218,8 +243,8 @@ mod ntt_test {
             let naive = negacyclic_naive_mult(&a, &b);
 
             ntt_proc.negacylcic_preprocess_two(a.as_mut(), b.as_mut());
-            let a_ntt = ntt_proc.transform(&a);
-            let b_ntt = ntt_proc.transform(&b);
+            let a_ntt = ntt_proc.ntt(&a);
+            let b_ntt = ntt_proc.ntt(&b);
 
             let result_ntt: Vec<_> = a_ntt
                 .iter()
@@ -227,7 +252,7 @@ mod ntt_test {
                 .map(|(a_, b_)| *a_ * *b_)
                 .collect();
 
-            let mut result = ntt_proc.inverse_transform(&result_ntt);
+            let mut result = ntt_proc.intt(&result_ntt);
             ntt_proc.negacylcic_postprocess(result.as_mut());
 
             assert_eq!(result, naive);
@@ -245,8 +270,8 @@ mod ntt_test {
             let b: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
             let naive = cyclic_naive_mult(&a, &b);
 
-            let a_ntt = ntt_proc.transform(&a);
-            let b_ntt = ntt_proc.transform(&b);
+            let a_ntt = ntt_proc.ntt(&a);
+            let b_ntt = ntt_proc.ntt(&b);
 
             let result_ntt: Vec<_> = a_ntt
                 .iter()
@@ -254,37 +279,67 @@ mod ntt_test {
                 .map(|(a_, b_)| *a_ * *b_)
                 .collect();
 
-            let result = ntt_proc.inverse_transform(&result_ntt);
+            let result = ntt_proc.intt(&result_ntt);
             assert_eq!(result, naive);
         }
     }
 
     #[test]
     fn cyclic_ntt_vs_ark_fft() {
-        let fft_domain = fft_domain::<ark_bn254::Fr>(N);
-        let ntt_proc = NTTProcessor::new(N, fft_domain.group_gen);
+        let root = Galois::get_minimal_primitive_n_root_of_unity(N).expect("no root found!"); // cyclic ntt
+        let ntt_proc = NTTProcessor::new(N, root);
 
         let mut rng = thread_rng();
         for _ in 0..NUM_TRIALS {
             let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
 
-            let a_ntt = ntt_proc.transform(&a);
-            let a_fft = fft_domain.fft(&a);
+            let a_ntt = ntt_proc.ntt(&a);
+            let a_fft = ntt_proc.fft(&a);
             assert_eq!(a_ntt, a_fft);
         }
     }
 
     #[test]
     fn cyclic_intt_vs_ark_ifft() {
-        let fft_domain = fft_domain::<ark_bn254::Fr>(N);
-        let ntt_proc = NTTProcessor::new(N, fft_domain.group_gen);
+        let root = Galois::get_minimal_primitive_n_root_of_unity(N).expect("no root found!"); // cyclic ntt
+        let ntt_proc = NTTProcessor::new(N, root);
 
         let mut rng = thread_rng();
         for _ in 0..NUM_TRIALS {
             let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
 
-            let a_ntt = ntt_proc.inverse_transform(&a);
-            let a_fft = fft_domain.ifft(&a);
+            let a_ntt = ntt_proc.intt(&a);
+            let a_fft = ntt_proc.ifft(&a);
+            assert_eq!(a_ntt, a_fft);
+        }
+    }
+
+    #[test]
+    fn cyclic_ntt_vs_ark_fft_groth_root() {
+        let (_, roots) = Galois::get_groth16_roots_of_unity();
+        let ntt_proc = NTTProcessor::new(N, roots[N.ilog2() as usize]);
+
+        let mut rng = thread_rng();
+        for _ in 0..NUM_TRIALS {
+            let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+
+            let a_ntt = ntt_proc.ntt(&a);
+            let a_fft = ntt_proc.fft(&a);
+            assert_eq!(a_ntt, a_fft);
+        }
+    }
+
+    #[test]
+    fn cyclic_intt_vs_ark_ifft_groth_root() {
+        let (_, roots) = Galois::get_groth16_roots_of_unity();
+        let ntt_proc = NTTProcessor::new(N, roots[N.ilog2() as usize]);
+
+        let mut rng = thread_rng();
+        for _ in 0..NUM_TRIALS {
+            let a: Vec<_> = (0..N).map(|_| ark_bn254::Fr::rand(&mut rng)).collect();
+
+            let a_ntt = ntt_proc.intt(&a);
+            let a_fft = ntt_proc.ifft(&a);
             assert_eq!(a_ntt, a_fft);
         }
     }
