@@ -12,7 +12,7 @@ const HE_M: CLong = 2 * HE_N;
 const HE_BITS: CLong = 700;
 
 struct HeContext<F: PrimeField> {
-    _context: Context,
+    context: Context,
     seckey: SecKey,
     pubkey: PubKey,
     encoder: BatchEncoder<F>,
@@ -29,7 +29,7 @@ impl<F: PrimeField> HeContext<F> {
         let encoder = BatchEncoder::new(m);
 
         Ok(Self {
-            _context: context,
+            context,
             seckey,
             pubkey,
             encoder,
@@ -259,6 +259,11 @@ fn main() -> color_eyre::Result<ExitCode> {
     install_tracing();
 
     let mut context = HeContext::<ark_bn254::Fr>::new(HE_M, HE_BITS)?;
+    let security = context.context.security_level()?;
+    tracing::info!("HE Parameters:");
+    tracing::info!("  N: {}", HE_N);
+    tracing::info!("  Bits: {}", HE_BITS);
+    tracing::info!("  Security level: {}", security);
 
     fft_test(1024, &mut context)?;
 
