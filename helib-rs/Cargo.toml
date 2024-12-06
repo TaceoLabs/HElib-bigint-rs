@@ -18,5 +18,7 @@ num-bigint = "0.4"
 helib-bindings = { path = "../helib-bindings" }
 rand = "0.8"
 thiserror = "2.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]

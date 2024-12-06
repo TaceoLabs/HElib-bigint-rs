@@ -182,7 +182,27 @@ fn fft_test<F: PrimeField>(dim: usize, context: &mut HeContext<F>) -> Result<(),
     Ok(())
 }
 
+fn install_tracing() {
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    let fmt_layer = fmt::layer()
+        .with_target(false)
+        .with_line_number(false)
+        .with_timer(());
+    let filter_layer = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new("info"))
+        .unwrap();
+
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(fmt_layer)
+        .init();
+}
+
 fn main() -> color_eyre::Result<ExitCode> {
+    install_tracing();
+
     let mut context = HeContext::<ark_bn254::Fr>::new(HE_M, HE_BITS)?;
 
     fft_test(1024, &mut context)?;
