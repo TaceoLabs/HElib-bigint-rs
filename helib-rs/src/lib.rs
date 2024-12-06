@@ -11,3 +11,4 @@ pub use helib::galois_engine::GaloisEngine;
 pub use helib::pubkey::PubKey;
 pub use helib::seckey::SecKey;
 pub use helib::zz::ZZ;
+pub use helib::CLong;

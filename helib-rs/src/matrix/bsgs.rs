@@ -345,7 +345,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -401,7 +401,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -462,7 +462,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -495,7 +495,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -530,7 +530,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -566,7 +566,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -603,7 +603,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -640,7 +640,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();
@@ -686,7 +686,7 @@ mod test {
         let mut galois = GaloisEngine::build(M as CLong).unwrap();
         let seckey = SecKey::build(&context).unwrap();
         let pubkey = PubKey::from_seckey(&seckey).unwrap();
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         for index in Bsgs::bsgs_indices(n1, n2, N) {
             galois.generate_key_for_step(&seckey, index).unwrap();

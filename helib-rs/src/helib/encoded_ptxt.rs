@@ -97,6 +97,7 @@ mod test {
 
     const TESTRUNS: usize = 10;
     const N: usize = 1024;
+    const M: usize = 2 * N;
 
     #[test]
     fn encoded_ptxt_create() {
@@ -107,7 +108,7 @@ mod test {
 
     #[test]
     fn encoded_ptxt_encode_decode_test() {
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let mut rng = thread_rng();
         for _ in 0..TESTRUNS {
@@ -123,7 +124,7 @@ mod test {
         const N: usize = 16384;
         const M: usize = 2 * N;
 
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();
@@ -184,7 +185,7 @@ mod test {
         const N: usize = 16384;
         const M: usize = 2 * N;
 
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();
@@ -249,7 +250,7 @@ mod test {
         const N: usize = 16384;
         const M: usize = 2 * N;
 
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();
@@ -315,7 +316,7 @@ mod test {
         const N: usize = 16384;
         const M: usize = 2 * N;
 
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();

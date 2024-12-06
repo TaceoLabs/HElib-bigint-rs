@@ -108,7 +108,7 @@ mod test {
     fn pubkey_packed_encrypt_decrypt() {
         const N: usize = 16384;
         const M: usize = 2 * N;
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();

@@ -1,4 +1,5 @@
 use super::{galois::Galois, ntt::NTTProcessor};
+use crate::CLong;
 use ark_ff::PrimeField;
 
 pub struct BatchEncoder<F: PrimeField> {
@@ -8,8 +9,10 @@ pub struct BatchEncoder<F: PrimeField> {
 }
 
 impl<F: PrimeField> BatchEncoder<F> {
-    pub fn new(n: usize) -> Self {
-        let root = Galois::get_minimal_primitive_n_root_of_unity(2 * n).expect("no root found");
+    pub fn new(m: CLong) -> Self {
+        let n = m as usize >> 1;
+        let root =
+            Galois::get_minimal_primitive_n_root_of_unity(m as usize).expect("no root found");
         Self {
             n,
             index_map: Self::populate_index_map(n),
@@ -86,12 +89,13 @@ mod test {
     use rand::{thread_rng, Rng};
 
     const NUM_TRIALS: usize = 10;
-    static N: usize = 1024;
+    const N: usize = 1024;
+    const M: usize = 2 * N;
 
     #[test]
     fn encode_decode_test() {
         let input: Vec<_> = (0..N).map(|i| ark_bn254::Fr::from(i as u64)).collect();
-        let encoder = BatchEncoder::new(N);
+        let encoder = BatchEncoder::new(M as CLong);
         let encode = encoder.encode(&input);
         let result = encoder.decode(&encode);
 
@@ -100,7 +104,7 @@ mod test {
 
     #[test]
     fn batch_add_test() {
-        let encoder = BatchEncoder::new(N);
+        let encoder = BatchEncoder::new(M as CLong);
 
         let mut rng = thread_rng();
         for _ in 0..NUM_TRIALS {
@@ -129,7 +133,7 @@ mod test {
 
     #[test]
     fn batch_mul_test() {
-        let encoder = BatchEncoder::new(N);
+        let encoder = BatchEncoder::new(M as CLong);
 
         let mut rng = thread_rng();
         for _ in 0..NUM_TRIALS {
@@ -156,7 +160,7 @@ mod test {
     #[test]
     fn rotate_test() {
         let input: Vec<_> = (0..N).map(|i| ark_bn254::Fr::from(i as u64)).collect();
-        let encoder = BatchEncoder::new(N);
+        let encoder = BatchEncoder::new(M as CLong);
         let encode = encoder.encode(&input);
         let n2 = (N >> 1) as i32;
 

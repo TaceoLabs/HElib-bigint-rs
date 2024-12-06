@@ -66,7 +66,7 @@ mod test {
 
     #[test]
     fn rotate_test() {
-        let batch_encoder = BatchEncoder::new(N);
+        let batch_encoder = BatchEncoder::new(M as CLong);
 
         let p = ZZ::char::<ark_bn254::Fr>().unwrap();
         let context = Context::build(M as CLong, &p, 700).unwrap();
